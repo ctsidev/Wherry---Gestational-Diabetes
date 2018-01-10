@@ -1,0 +1,120 @@
+-- *******************************************************************************************************
+-- STEP 1
+--   Create an initial Patient table with ALL mother-child records avaialble in Clarity
+-- *******************************************************************************************************
+DROP TABLE xdr_wherry_all_mom_child PURGE;                                                  
+CREATE TABLE xdr_wherry_all_mom_child AS
+SELECT DISTINCT nb.pat_id                                               AS nb_pat_id
+               ,nbp.pat_mrn_id                                          AS nb_mrn
+               ,nbp.birth_date                                          AS nb_dob
+               ,mom.child_enc_csn_id                                    AS nb_csn
+               ,mom.line                                                AS nb_rank
+               ,xsx.name                                                AS nb_sex
+               ,nbp.ped_gest_age                                        AS nb_age
+               ,nbp.zip                                                 AS nb_zip
+               ,mom.pat_id                                              AS mom_pat_id
+               ,mp.pat_mrn_id                                           AS mom_mrn
+               ,mp.birth_date                                           AS mom_dob
+               ,trunc(months_between(nbp.birth_date, mp.birth_date)/12) AS mom_age_at_delivery
+               ,mom.pat_enc_csn_id                                      AS mom_csn
+               ,MAX(line) OVER (PARTITION BY mom.pat_enc_csn_id)        AS number_of_babies
+  FROM clarity.hsp_ld_mom_child mom
+  LEFT JOIN clarity.pat_enc     nb  ON mom.child_enc_csn_id = nb.pat_enc_csn_id
+  LEFT JOIN clarity.patient     nbp ON nb.pat_id = nbp.pat_id
+  LEFT JOIN clarity.zc_sex      xsx ON nbp.sex_c = xsx.rcpt_mem_sex_c
+  LEFT JOIN clarity.patient     mp  ON mom.pat_id = mp.pat_id
+  WHERE 
+        trunc(nbp.birth_date) BETWEEN '01/01/2006' AND SYSDATE;
+  
+ select count(*), count(distinct NB_pat_id), count(distinct mom_pat_id) from xdr_wherry_all_mom_child;     --17087	17087	14837
+--ALTER TABLE xdr_wherry_prg_pat ADD CONSTRAINT xdr_wherry_prg_pat_pk PRIMARY KEY (pat_id);
+
+
+-- *******************************************************************************************************
+-- STEP 
+--   Create the cohort table based on the criteria (DX)
+-- *******************************************************************************************************
+DROP TABLE xdr_wherry_prg_cohdx PURGE;
+CREATE TABLE xdr_wherry_prg_cohdx AS
+    SELECT DISTINCT mom.*
+            ,9 AS ICD_TYPE
+            ,EDG.code as ICD_CODE
+    FROM xdr_wherry_all_mom_child   mom
+    JOIN clarity.pat_enc_dx         dx  ON mom.mom_csn = dx.pat_enc_csn_id
+    JOIN clarity.edg_current_icd9           edg ON dx.dx_id = edg.dx_id
+    WHERE
+        REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
+        OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')        --ICD-9: V22-V23 (includes all subcategories)
+UNION
+    SELECT DISTINCT mom.*
+                ,10 AS ICD_TYPE
+                ,EDG.code as ICD_CODE
+    FROM xdr_wherry_all_mom_child   mom
+    JOIN clarity.pat_enc_dx         dx  ON mom.mom_csn = dx.pat_enc_csn_id
+    JOIN clarity.edg_current_icd10           edg ON dx.dx_id = edg.dx_id
+    WHERE
+        REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')         --ICD-10: Z34, Z3A, Z37, O categories
+        OR REGEXP_LIKE(edg.code,'^O+')              --ICD-10: Z34, Z3A, Z37, O categories
+UNION
+    SELECT DISTINCT mom.*
+            ,9 AS ICD_TYPE
+            ,EDG.code as ICD_CODE
+    FROM xdr_wherry_all_mom_child   mom
+    JOIN clarity.hsp_admit_diag         dx  ON mom.mom_csn = dx.pat_enc_csn_id
+    JOIN clarity.edg_current_icd9           edg ON dx.dx_id = edg.dx_id
+    WHERE
+        REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')      --ICD-9: 630-679 (includes all subcategories)
+            OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')       --ICD-9: V22-V23 (includes all subcategories)
+UNION
+    SELECT DISTINCT mom.*
+        ,10 AS ICD_TYPE
+        ,EDG.code as ICD_CODE
+        FROM xdr_wherry_all_mom_child   mom
+        JOIN clarity.hsp_admit_diag         dx  ON mom.mom_csn = dx.pat_enc_csn_id
+        JOIN clarity.edg_current_icd10           edg ON dx.dx_id = edg.dx_id
+        WHERE
+            REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')       --ICD-10: Z34, Z3A, Z37, O categories
+            OR REGEXP_LIKE(edg.code,'^O+')       --ICD-10: Z34, Z3A, Z37, O categories
+UNION
+    SELECT DISTINCT mom.*
+        ,9 AS ICD_TYPE
+        ,EDG.code as ICD_CODE
+    FROM xdr_wherry_all_mom_child   mom
+    JOIN clarity.pat_enc            enc  ON mom.mom_csn = enc.pat_enc_csn_id
+    join clarity.hsp_acct_dx_list           dx on enc.hsp_account_id = dx.hsp_account_id
+    JOIN clarity.edg_current_icd9           edg ON dx.dx_id = edg.dx_id
+    WHERE
+        REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
+        OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')       --ICD-9: V22-V23 (includes all subcategories)
+UNION
+    SELECT DISTINCT mom.*
+        ,10 AS ICD_TYPE
+        ,EDG.code as ICD_CODE
+    FROM xdr_wherry_all_mom_child   mom
+    JOIN clarity.pat_enc            enc  ON mom.mom_csn = enc.pat_enc_csn_id
+    join clarity.hsp_acct_dx_list           dx on enc.hsp_account_id = dx.hsp_account_id
+    JOIN clarity.edg_current_icd10          edg ON dx.dx_id = edg.dx_id
+    WHERE
+        REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')       --ICD-10: Z34, Z3A, Z37, O categories
+        OR REGEXP_LIKE(edg.code,'^O+')       --ICD-10: Z34, Z3A, Z37, O categories
+;
+--ALTER TABLE xdr_wherry_prg_cohdx ADD CONSTRAINT xdr_wherry_prg_cohdx_pk PRIMARY KEY (pat_id);
+select count(*), COUNT(distinct nb_pat_id), count(distinct mom_pat_id) from xdr_wherry_prg_cohdx;  --160534	17055	14819
+--missing 32 32 30
+
+--MISSING PATS
+select count(*), COUNT(distinct hs.nb_pat_id), count(distinct hs.mom_pat_id) 
+from xdr_wherry_all_mom_child hs
+left join xdr_wherry_prg_cohdx  pr on hs.nb_pat_id = pr.nb_pat_id and hs.mom_pat_id = pr.mom_pat_id
+where 
+pr.mom_pat_id is null    ;--32	32	30
+
+
+--CHECK DX CODES
+SELECT DISTINCT dx.ICD_TYPE
+,dx.icd_CODE 
+,lk.icd_desc
+FROM xdr_wherry_prg_cohdx dx
+join i2b2.lz_dx_px_lookup lk on dx.icd_code = lk.code
+                            and dx.icd_type = lk.ICD_TYPE
+                            and lk.code_type = 'DX'
