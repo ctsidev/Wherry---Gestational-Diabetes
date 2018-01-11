@@ -5,55 +5,55 @@
 --------------------------------------------------------------------------------
 --	STEP 6.1: Labs final selection: After loading Investigator's selections back into the system, apply it to pull
 --------------------------------------------------------------------------------  
-DROP TABLE xdr_Baghdadi_lab PURGE;
-CREATE TABLE xdr_Baghdadi_lab AS 
+DROP TABLE xdr_Wherry_preg_lab PURGE;
+CREATE TABLE xdr_Wherry_preg_lab AS 
 SELECT DISTINCT lab.*
-  FROM xdr_Baghdadi_laball            lab
-	join xdr_Baghdadi_labdrv drv on lab.component_id = drv.component_id;
+  FROM xdr_Wherry_preg_laball            lab
+	join xdr_Wherry_preg_labdrv drv on lab.component_id = drv.component_id;
 
-CREATE INDEX xdr_Baghdadi_lab_ENCIDIX ON xdr_Baghdadi_lab(pat_enc_csn_id);
+CREATE INDEX xdr_Wherry_preg_lab_ENCIDIX ON xdr_Wherry_preg_lab(pat_enc_csn_id);
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_LAB' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_LAB' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
 	,COUNT(*) AS TOTAL_COUNT 		--2,555,351(9/5/17)
-FROM XDR_BAGHDADI_LAB;
+FROM XDR_Wherry_preg_LAB;
 COMMIT;
                        
 
 --------------------------------------------------------------------------------
 --	STEP 6.2: Meds final selection: After loading Investigator's selections back into the system, apply it to pull
 -------------------------------------------------------------------------------- 
-DROP TABLE XDR_BAGHDADI_med PURGE;
-CREATE TABLE XDR_BAGHDADI_med as
+DROP TABLE XDR_Wherry_preg_med PURGE;
+CREATE TABLE XDR_Wherry_preg_med as
 SELECT distinct med.*
-FROM XDR_BAGHDADI_MEDSALL med
-JOIN XDR_BAGHDADI_MEDDRV drv on med.medication_id = drv.medication_id;
+FROM XDR_Wherry_preg_MEDSALL med
+JOIN XDR_Wherry_preg_MEDDRV drv on med.medication_id = drv.medication_id;
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_MED' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_MED' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	--  3,734(9/5/17)
 	,COUNT(*) AS TOTAL_COUNT 		--249,042(9/5/17)
-FROM XDR_BAGHDADI_MED;
+FROM XDR_Wherry_preg_MED;
 COMMIT;
 
 --------------------------------------------------------------------------------
 --	STEP 6.3: Allergies final selection: After loading Investigator's selections back into the system, apply it to pull
 --------------------------------------------------------------------------------
-DROP TABLE xdr_Baghdadi_alg PURGE;
-CREATE TABLE xdr_Baghdadi_alg as
+DROP TABLE xdr_Wherry_preg_alg PURGE;
+CREATE TABLE xdr_Wherry_preg_alg as
 SELECT distinct alg.*
-FROM xdr_Baghdadi_algall 		 alg
-JOIN xdr_baghdadi_algdrv         drv on alg.allergen_id = drv.allergen_id
+FROM xdr_Wherry_preg_algall 		 alg
+JOIN xdr_Wherry_preg_algdrv         drv on alg.allergen_id = drv.allergen_id
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_ALG' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_ALG' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	
 	,COUNT(*) AS TOTAL_COUNT 		
-FROM XDR_BAGHDADI_ALG;
+FROM XDR_Wherry_preg_ALG;
 COMMIT;
 --------------------------------------------------------------------------------
 --	STEP 6.4: Create Encounters table
@@ -61,8 +61,8 @@ COMMIT;
 	--------------------------------------------------------------------------------
 	--	STEP 6.4.1: Create destination table
 	--------------------------------------------------------------------------------
-DROP TABLE XDR_BAGHDADI_DX PURGE;
- CREATE TABLE XDR_BAGHDADI_DX
+DROP TABLE XDR_Wherry_preg_DX PURGE;
+ CREATE TABLE XDR_Wherry_preg_DX
    (	"PAT_ID" VARCHAR2(18 BYTE), 
 	"PAT_ENC_CSN_ID" NUMBER(18,0) NOT NULL ENABLE, 
 	"CONTACT_DATE" DATE, 
@@ -77,9 +77,9 @@ DROP TABLE XDR_BAGHDADI_DX PURGE;
 	--------------------------------------------------------------------------------
 	--	STEP 6.4.2: Initial load from pat_enc_dx table
 	--------------------------------------------------------------------------------
-insert into XDR_BAGHDADI_DX
+insert into XDR_Wherry_preg_DX
 SELECT coh.pat_id, 
-	   coh.pat_enc_csn_id, 
+	   dx.pat_enc_csn_id, 
 	   dx.contact_date, 
 	   edg.code as icd_code,
      9 as icd_type,
@@ -87,14 +87,14 @@ SELECT coh.pat_id,
      null as admit_dx_flag,
      null as poa_flag,
      null as hsp_final_dx_flag
-FROM XDR_BAGHDADI_COH coh
-JOIN clarity.pat_enc_dx dx ON coh.PAT_ENC_CSN_ID = dx.PAT_ENC_CSN_ID
+FROM XDR_Wherry_preg_PAT coh
+JOIN clarity.pat_enc_dx dx ON coh.pat_id = dx.pat_id
 JOIN clarity.edg_current_icd9 edg ON dx.dx_id = edg.dx_id
 WHERE dx.primary_dx_yn = 'Y' 
   and edg.code not like 'IMO0%'
 UNION
 SELECT coh.pat_id, 
-	   coh.pat_enc_csn_id, 
+	   dx.pat_enc_csn_id, 
 	   dx.contact_date, 
 	   edg.code as icd_code,
 	   10 as icd_type,
@@ -102,8 +102,8 @@ SELECT coh.pat_id,
      null as admit_dx_flag,
      null as poa_flag,
      null as hsp_final_dx_flag
-FROM XDR_BAGHDADI_COH coh
-JOIN clarity.pat_enc_dx dx ON coh.PAT_ENC_CSN_ID = dx.PAT_ENC_CSN_ID
+FROM XDR_Wherry_preg_PAT coh
+JOIN clarity.pat_enc_dx dx ON coh.pat_id = dx.pat_id
 JOIN clarity.edg_current_icd10 edg ON dx.dx_id = edg.dx_id
 WHERE dx.primary_dx_yn = 'Y' 
   and edg.code not like 'IMO0%'
@@ -111,36 +111,36 @@ WHERE dx.primary_dx_yn = 'Y'
 commit;
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_DX' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_DX' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	--
 	,COUNT(*) AS TOTAL_COUNT 		--10,939 rows inserted.(9/5/17)
-FROM XDR_BAGHDADI_DX;
+FROM XDR_Wherry_preg_DX;
 COMMIT;
 
 	--------------------------------------------------------------------------------
 	--	STEP 6.4.3: Now Load Secondary Dx if they don't already exist.
 	--------------------------------------------------------------------------------
-merge into XDR_BAGHDADI_DX lcd
+merge into XDR_Wherry_preg_DX lcd
 using
 (SELECT coh.pat_id, 
-	   coh.pat_enc_csn_id, 
+	   dx.pat_enc_csn_id, 
 	   dx.contact_date, 
 	   edg.code as icd_code,
      9 as icd_type
-FROM XDR_BAGHDADI_COH coh
-JOIN clarity.pat_enc_dx dx ON coh.PAT_ENC_CSN_ID = dx.PAT_ENC_CSN_ID
+FROM XDR_Wherry_preg_PAT coh
+JOIN clarity.pat_enc_dx dx ON coh.pat_id = dx.pat_id
 JOIN clarity.edg_current_icd9 edg ON dx.dx_id = edg.dx_id
 WHERE (dx.primary_dx_yn is null or  dx.primary_dx_yn != 'Y')
     and edg.code not like 'IMO0%'
 UNION
 SELECT coh.pat_id, 
-	   coh.pat_enc_csn_id,
+	   dx.pat_enc_csn_id,
 	   dx.contact_date, 
 	   edg.code as icd_code,
 	   10 as icd_type
-FROM XDR_BAGHDADI_COH coh
-JOIN clarity.pat_enc_dx dx ON coh.PAT_ENC_CSN_ID = dx.PAT_ENC_CSN_ID
+FROM XDR_Wherry_preg_PAT coh
+JOIN clarity.pat_enc_dx dx ON coh.pat_id = dx.pat_id
 JOIN clarity.edg_current_icd10 edg ON dx.dx_id = edg.dx_id
 WHERE (dx.primary_dx_yn is null or  dx.primary_dx_yn != 'Y')
     and edg.code not like 'IMO0%'
@@ -157,41 +157,43 @@ commit;
 --195,913 rows merged.(9/5/17)
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_DX' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_DX' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	--
 	,COUNT(*) AS TOTAL_COUNT 		--206,852(9/5/17)
-FROM XDR_BAGHDADI_DX;
+FROM XDR_Wherry_preg_DX;
 COMMIT;
 
 	--------------------------------------------------------------------------------
 	--	STEP 6.4.4: Now Load Admit Dx
 	--------------------------------------------------------------------------------
-MERGE INTO XDR_BAGHDADI_DX lcd
+MERGE INTO XDR_Wherry_preg_DX lcd
 using
   (select
 		  coh.pat_id,
-		  coh.pat_enc_csn_id,
-		  trunc(coh.HOSP_ADMSN_TIME) as contact_date,
+		  hd.pat_enc_csn_id,
+		  trunc(dt.calendar_dt) as contact_date,
 		  edg.code as icd_code,
 		  9 as icd_type
-    FROM XDR_BAGHDADI_COH coh
-    join clarity.hsp_admit_diag hd on coh.pat_enc_csn_id = hd.pat_enc_csn_id
+    FROM XDR_Wherry_preg_PAT coh
+    join clarity.hsp_admit_diag hd on coh.pat_id = hd.pat_id
     JOIN clarity.edg_current_icd9 edg ON hd.dx_id = edg.dx_id
-      where coh.HOSP_ADMSN_TIME is not null
+    LEFT JOIN CLARITY.DATE_DIMENSION  dt ON hd.PAT_ENC_DATE_REAL = dt.epic_dte
+      where hd.PAT_ENC_DATE_REAL is not null
       and hd.dx_id is not null
       and edg.code not like 'IMO0%'
   UNION
   select
 		  coh.pat_id,
-		  coh.pat_enc_csn_id,
-		  trunc(coh.HOSP_ADMSN_TIME) as contact_date,
+		  hd.pat_enc_csn_id,
+		  trunc(dt.calendar_dt) as contact_date,
 		  edg.code as icd_code,
 		  10 as icd_type
-  FROM XDR_BAGHDADI_COH coh
-  join clarity.hsp_admit_diag hd on coh.pat_enc_csn_id = hd.pat_enc_csn_id
+  FROM XDR_Wherry_preg_PAT coh
+  join clarity.hsp_admit_diag hd on coh.pat_id = hd.pat_id
   JOIN clarity.edg_current_icd10 edg ON hd.dx_id = edg.dx_id
-  where coh.HOSP_ADMSN_TIME is not null
+  LEFT JOIN CLARITY.DATE_DIMENSION  dt ON hd.PAT_ENC_DATE_REAL = dt.epic_dte
+  where hd.PAT_ENC_DATE_REAL is not null
     and hd.dx_id is not null
     and edg.code not like 'IMO0%'
   ) adm
@@ -210,11 +212,11 @@ commit;
 --35,401 rows merged.(9/5/17)
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_DX' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_DX' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	--
 	,COUNT(*) AS TOTAL_COUNT 		--206,852(9/5/17)
-FROM XDR_BAGHDADI_DX;
+FROM XDR_Wherry_preg_DX;
 COMMIT;
 
 	--------------------------------------------------------------------------------
@@ -223,7 +225,7 @@ COMMIT;
 	--      		final DX, Present on admission
 	--  			Process line 1 (Primary final dx) first
 	--------------------------------------------------------------------------------
-MERGE INTO XDR_BAGHDADI_DX lcd
+MERGE INTO XDR_Wherry_preg_DX lcd
 using
     (select
         coh.pat_id,
@@ -231,8 +233,8 @@ using
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         9 as icd_type
-    from XDR_BAGHDADI_COH coh
-    JOIN XDR_BAGHDADI_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    from XDR_Wherry_preg_PAT coh
+    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd9 edg ON hd.dx_id = edg.dx_id
     where t.hosp_admsn_time is not null
@@ -245,8 +247,8 @@ using
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         10 as icd_type
-    from XDR_BAGHDADI_COH coh
-    JOIN XDR_BAGHDADI_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    from XDR_Wherry_preg_PAT coh
+    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd10 edg ON hd.dx_id = edg.dx_id
     left join clarity.ZC_DX_POA zdp on hd.final_dx_poa_c = zdp.dx_poa_c
@@ -270,17 +272,17 @@ commit;
 --6,525 rows merged.(9/5/17)
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_DX' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_DX' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	
 	,COUNT(*) AS TOTAL_COUNT 		
-FROM XDR_BAGHDADI_DX;
+FROM XDR_Wherry_preg_DX;
 COMMIT;
 	--------------------------------------------------------------------------------
 	--	STEP 6.4.6: Process line 2-end, Secondary dx next
 	--  			Don't update primary secondary flag
 	--------------------------------------------------------------------------------
-MERGE INTO XDR_BAGHDADI_DX lcd
+MERGE INTO XDR_Wherry_preg_DX lcd
 using
     (select
         coh.pat_id,
@@ -288,8 +290,8 @@ using
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         9 as icd_type
-    from XDR_BAGHDADI_COH coh
-    JOIN XDR_BAGHDADI_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    from XDR_Wherry_preg_PAT coh
+    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd9 edg ON hd.dx_id = edg.dx_id
     left join clarity.ZC_DX_POA zdp on hd.final_dx_poa_c = zdp.dx_poa_c
@@ -303,8 +305,8 @@ using
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         10 as icd_type
-    from XDR_BAGHDADI_COH coh
-    JOIN XDR_BAGHDADI_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    from XDR_Wherry_preg_PAT coh
+    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd10 edg ON hd.dx_id = edg.dx_id
     left join clarity.ZC_DX_POA zdp on hd.final_dx_poa_c = zdp.dx_poa_c
@@ -327,16 +329,16 @@ commit;
 --151,767 rows merged.(9/5/17)
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_DX' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_DX' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	
 	,COUNT(*) AS TOTAL_COUNT 		
-FROM XDR_BAGHDADI_DX;
+FROM XDR_Wherry_preg_DX;
 COMMIT;
 	--------------------------------------------------------------------------------
 	--	STEP 6.4.7: Last but not least, update the POA flag if it's = 'Yes'
 	--------------------------------------------------------------------------------
-UPDATE XDR_BAGHDADI_DX lcd 
+UPDATE XDR_Wherry_preg_DX lcd 
 SET lcd.poa_flag = 'Y'
 WHERE EXISTS (SELECT hsp.pat_id
               ,hsp.pat_enc_csn_id
@@ -350,8 +352,8 @@ WHERE EXISTS (SELECT hsp.pat_id
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         9 as icd_type
-    from XDR_BAGHDADI_COH coh
-    JOIN XDR_BAGHDADI_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    from XDR_Wherry_preg_PAT coh
+    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd9 edg ON hd.dx_id = edg.dx_id
     left join clarity.ZC_DX_POA zdp on hd.final_dx_poa_c = zdp.dx_poa_c
@@ -366,8 +368,8 @@ WHERE EXISTS (SELECT hsp.pat_id
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         10 as icd_type
-    from XDR_BAGHDADI_COH coh
-    JOIN XDR_BAGHDADI_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    from XDR_Wherry_preg_PAT coh
+    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd10 edg ON hd.dx_id = edg.dx_id
     left join clarity.ZC_DX_POA zdp on hd.final_dx_poa_c = zdp.dx_poa_c
@@ -385,21 +387,21 @@ commit;
 --103,882 rows updated.(9/5/17)
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_DX' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_DX' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	--  3,738(9/5/17)
 	,COUNT(*) AS TOTAL_COUNT 		--328,354(9/5/17)
-FROM XDR_BAGHDADI_DX;
+FROM XDR_Wherry_preg_DX;
 COMMIT;
 
-select * from XDR_BAGHDADI_DX;
+select * from XDR_Wherry_preg_DX;
 
 
 --------------------------------------------------------------------------------
 -- STEP 6.5: Create Procedures table
 --------------------------------------------------------------------------------
-DROP TABLE xdr_baghdadi_prc PURGE;
-CREATE TABLE xdr_baghdadi_prc
+DROP TABLE xdr_Wherry_preg_prc PURGE;
+CREATE TABLE xdr_Wherry_preg_prc
    (	"PAT_ID" VARCHAR2(18 BYTE), 
 	"PAT_ENC_CSN_ID" NUMBER(18,0), 
 	"PROC_DATE" DATE, 
@@ -409,7 +411,7 @@ CREATE TABLE xdr_baghdadi_prc
 	"PROC_PERF_PROV_ID" VARCHAR2(20 BYTE)
    );
 
-insert into xdr_baghdadi_prc
+insert into xdr_Wherry_preg_prc
 SELECT distinct t.pat_id, 
 		t.pat_enc_csn_id, 
 		p.proc_date, 
@@ -419,21 +421,21 @@ SELECT distinct t.pat_id,
 		p.proc_perf_prov_id
 FROM clarity.hsp_acct_px_list p  
       JOIN clarity.cl_icd_px i ON p.final_icd_px_id = i.icd_px_id 
-      JOIN XDR_BAGHDADI_IP_ENC t ON p.hsp_account_id = t.hsp_account_id 
-      JOIN XDR_BAGHDADI_COH   coh on t.PAT_ENC_CSN_ID = coh.PAT_ENC_CSN_ID
+      JOIN XDR_Wherry_preg_IP_ENC t ON p.hsp_account_id = t.hsp_account_id 
+      JOIN XDR_Wherry_preg_PAT   coh on t.PAT_ENC_CSN_ID = coh.PAT_ENC_CSN_ID
       join clarity.ZC_HCD_CODE_SET zhcs on i.REF_BILL_CODE_SET_C = zhcs.CODE_SET_C;
 --31,709 rows inserted.(9/5/17)
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_PRC' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_PRC' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
 	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
-FROM XDR_BAGHDADI_PRC;
+FROM XDR_Wherry_preg_PRC;
 COMMIT;
 
 select ICD_CODE_SET,count(*) 
-from xdr_baghdadi_prc
+from xdr_Wherry_preg_prc
 group by ICD_CODE_SET;
 --ICD-10-PCS	18656
 --ICD-9-CM Volume 3	13053
@@ -443,8 +445,8 @@ group by ICD_CODE_SET;
 --------------------------------------------------------------------------------
 -- STEP 6.6: Create Flowsheet table
 --------------------------------------------------------------------------------
-DROP TABLE xdr_Baghdadi_flo PURGE;
-CREATE TABLE xdr_Baghdadi_flo AS 
+DROP TABLE xdr_Wherry_preg_flo PURGE;
+CREATE TABLE xdr_Wherry_preg_flo AS 
 SELECT DISTINCT coh.pat_id
                        ,enc.pat_enc_csn_id
                        ,enc.INPATIENT_DATA_ID
@@ -455,157 +457,31 @@ SELECT DISTINCT coh.pat_id
                        ,gpd.flo_meas_name     
                        ,meas.recorded_time
                        ,meas.meas_value       AS measure_value
-          FROM XDR_BAGHDADI_COH           coh 
-          JOIN XDR_BAGHDADI_IP_ENC        enc   ON coh.pat_enc_csn_id = enc.pat_enc_csn_id
+          FROM XDR_Wherry_preg_PAT           coh 
+          --Needs encounter table
+          --JOIN XDR_Wherry_preg_IP_ENC        enc   ON coh.pat_enc_csn_id = enc.pat_enc_csn_id
           JOIN clarity.ip_flwsht_rec      rec   ON enc.inpatient_data_id = rec.inpatient_data_id
           JOIN clarity.ip_flwsht_meas     meas  ON rec.fsd_id = meas.fsd_id
           JOIN clarity.ip_flo_gp_data     gpd   ON meas.flo_meas_id = gpd.flo_meas_id
           JOIN clarity.ip_flt_data        dta   ON meas.flt_id = dta.template_id
           WHERE meas.recorded_time IS NOT NULL 
             AND meas.meas_value IS NOT NULL
-            AND meas.flo_meas_id IN (
-                                    '14'         --Weight
+            AND meas.flo_meas_id IN ('11'         --Height
+                                    ,'14'         --Weight
                                     ,'5'          --Blood Pressure  
                                     ,'8'          --Pulse
                                     ,'6'          --Temperature
                                     ,'9'          --Respiratory Rate 
                                     ,'301070'     --BMI
+                                    ,'10'         --Pulse Oximetry (SpO2)
                                     )
 ;
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_FLO' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_FLO' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
 	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
-FROM XDR_BAGHDADI_FLO;
+FROM XDR_Wherry_preg_FLO;
 COMMIT;
 
-
---------------------------------------------------------------------------------
--- STEP 6.7: Create MIcrobiology table
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
---	STEP 6.7.1: Create the Orders Procedure table
---				Check to make sure that this code matches your environment
---				(opr.order_type_c = 3)  for Microbiology
---------------------------------------------------------------------------------  
-DROP TABLE xdr_Baghdadi_opr PURGE;
-CREATE TABLE xdr_Baghdadi_opr AS
-SELECT DISTINCT coh.pat_id
-               ,opr.pat_enc_csn_id
-			   ,opr.order_proc_id
-               ,opr.proc_id
-               ,opr.description           
-               ,eap.proc_name
-               ,opr.proc_code
-               ,opr.order_time
-               ,opr.result_time
-               ,opr.order_type_c
-               ,xot.NAME                  AS order_type
-               ,opr.abnormal_yn
-               ,opr.order_status_c
-               ,opr.radiology_status_c
-               ,opr.specimen_source_c
-               ,opr.specimen_type_c
-               ,acc.acc_num
-               ,xpt.NAME                  AS specimen_type
-               ,res.line
-               ,res.ord_value
-               ,res.component_id
-               ,cmp.NAME                  AS component_name
-               ,res.component_comment
-               ,res.result_time           AS res_result_time
-               ,res.result_val_start_ln
-               ,res.result_val_end_ln
-               ,res.result_cmt_start_ln
-               ,res.result_cmt_end_ln
-               ,res.lrr_based_organ_id
-  FROM XDR_BAGHDADI_COH                              coh
-  JOIN clarity.order_proc               opr ON coh.pat_enc_csn_id = opr.pat_enc_csn_id
-  LEFT JOIN clarity.order_results       res ON opr.order_proc_id = res.order_proc_id
-  LEFT JOIN clarity.order_rad_acc_num   acc ON opr.order_proc_id = acc.order_proc_id
-  LEFT JOIN clarity.clarity_eap         eap ON opr.proc_id = eap.proc_id
-  LEFT JOIN clarity.clarity_component	  cmp	ON res.component_id = cmp.component_id
-  LEFT JOIN clarity.zc_order_type       xot ON opr.order_type_c = xot.order_type_c 
-  LEFT JOIN clarity.zc_specimen_type    xpt ON opr.specimen_type_c = xpt.specimen_type_c
-  WHERE opr.order_status_c = 5                    				--Completed
-    AND (opr.order_type_c = 3)                                                  --Microbiology
-;
-CREATE INDEX xdr_Baghdadi_opr_patidx ON xdr_Baghdadi_opr (pat_id);
-CREATE INDEX xdr_Baghdadi_opr_ordidx ON xdr_Baghdadi_opr (order_proc_id);
-CREATE INDEX xdr_Baghdadi_opr_opridx ON xdr_Baghdadi_opr (order_type_c, proc_id);
-
---Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_FLO' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--  3,717(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--158,090(9/5/17)
-FROM XDR_BAGHDADI_FLO;
-COMMIT;
-
-
---------------------------------------------------------------------------------
---	STEP 6.7.2: Extract Microbiology Report by Patient Procedure
---------------------------------------------------------------------------------  
-DROP TABLE xdr_Baghdadi_mic PURGE;
-CREATE TABLE xdr_Baghdadi_mic AS
-SELECT 1                    AS micro_sorting
-              ,rcc.order_id         AS micro_order_id
-              ,rcc.line_comp        AS micro_line
-              ,rcc.results_comp_cmt AS micro_results_cmt
-              ,rcc.line_comment     AS micro_line_comment
-          FROM xdr_Baghdadi_opr                              prc
-          LEFT JOIN clarity.order_res_comp_cmt  rcc ON prc.order_proc_id = rcc.order_id
-		  WHERE TRIM(rcc.results_comp_cmt) IS NOT NULL
-        UNION
-        SELECT 2                    AS micro_sorting
-              ,rcc.order_id         AS micro_order_id
-              ,rcc.line             AS micro_line
-              ,rcc.results_cmt      AS micro_results_cmt
-              ,rcc.line_comment     AS micro_line_comment
-          FROM xdr_Baghdadi_opr                              prc
-          LEFT JOIN clarity.order_res_comment   rcc ON prc.order_proc_id = rcc.order_id
-		  WHERE TRIM(rcc.results_cmt) IS NOT NULL
-;
-
---Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_FLO' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--  3,717(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--147,170(9/5/17)
-FROM XDR_BAGHDADI_FLO;
-COMMIT;
-
-SELECT COUNT(DISTINCT micro_order_id) FROM xdr_Baghdadi_mic;                       --38,807(9/5/17)
-
-
-
---------------------------------------------------------------------------------
---	STEP 6.7.3: Pull additional fields for susceptibility and sensitivity analysis
---  			Keep this separate from the details or we will get duplicates.
---------------------------------------------------------------------------------  
-DROP TABLE xdr_Baghdadi_mic2 PURGE;
-CREATE TABLE xdr_Baghdadi_mic2 AS
-SELECT DISTINCT prc.order_proc_id           AS order_proc_id
-               ,org.name                    AS organism_name
-               ,xsc.name                    AS susceptibility
-               ,sns.sensitivity_value       AS sensitivity
-               ,xab.name                    AS antibiotic
-               ,sns.line
-  FROM xdr_Baghdadi_opr			prc
-  JOIN clarity.order_sensitivity        sns ON prc.order_proc_id = sns.order_proc_id
-  LEFT JOIN clarity.zc_suscept          xsc ON sns.suscept_c = xsc.suscept_c
-  LEFT JOIN clarity.zc_antibiotic       xab ON sns.antibiotic_c = xab.antibiotic_c
-  LEFT JOIN clarity.clarity_organism	org ON sns.organism_id = org.organism_id
-;
-
---Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_FLO' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--
-	,COUNT(*) AS TOTAL_COUNT 		--81,851(9/5/17)
-FROM XDR_BAGHDADI_FLO;
-COMMIT;
-
-SELECT COUNT(DISTINCT order_proc_id) FROM xdr_Baghdadi_mic2;                       -- 6,139(9/5/17)
