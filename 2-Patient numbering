@@ -27,10 +27,11 @@ CREATE TABLE "XDR_WHERRY_RACE_ROLLUP"
 --------------------------------------------------------------------------------
 --	Step 2.3: Create Patient Table
 --------------------------------------------------------------------------------
-DROP TABLE XDR_WHERRY_MOM PURGE;
-  CREATE TABLE XDR_WHERRY_MOM
+DROP TABLE XDR_WHERRY_preg_pat PURGE;
+  CREATE TABLE XDR_WHERRY_preg_pat
    ("STUDY_ID" NUMBER,
 	"PAT_ID" VARCHAR2(18 BYTE), 
+    "MOM_PAT_ID" VARCHAR2(18 BYTE), 
 --    "FIRST_HOSP_DATE" DATE,
 --    "PAT_ENC_CSN_ID" VARCHAR(11),
 --	"BIRTH_DATE" DATE, 
@@ -43,17 +44,21 @@ DROP TABLE XDR_WHERRY_MOM PURGE;
 	"RESTRICTED_YN" VARCHAR2(1 BYTE), 
 	"MAPPED_RACE_C" NUMBER(38,0),
     "BENEFIT_PLAN_NAME" VARCHAR2(254 BYTE),
-    "FINANCIAL_CLASS" VARCHAR2(254 BYTE)
+    "FINANCIAL_CLASS" VARCHAR2(254 BYTE),
+    "MOM_CHILD_MC" VARCHAR2(1 BYTE)
   );  
 
 
 
 
 
-INSERT INTO XDR_WHERRY_MOM
+INSERT INTO XDR_WHERRY_preg_pat
 SELECT rownum as study_id,
-pat.* from
+pat.* 
+,'M' MOM_CHILD_YN
+from
 (SELECT DISTINCT coh.pat_id,
+null as mom_pat_id,
 --coh.FIRST_HOSP_DATE,
 --coh.PAT_ENC_CSN_ID,
 --p.pat_mrn_id,
@@ -107,46 +112,47 @@ INSERT INTO XDR_WHERRY_COUNTS(TABLE_NAME,PAT_COUNT,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_PAT' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,738(9/1/17)
 	,COUNT(*) AS TOTAL_COUNT 		-- 3,738(9/1/17)
-FROM XDR_WHERRY_MOM;
+FROM XDR_WHERRY_preg_pat;
 COMMIT;
 
-SELECT * FROM XDR_WHERRY_MOM ORDER BY PAT_ID;
+SELECT * FROM XDR_WHERRY_preg_pat ORDER BY PAT_ID;
 --------------------------------------------------------------------------------
 --	STEP 2.4: Create patient table with all the mapped race values that apply to each patient
 --				This process is the one used for UCRex, therefore if you already have this in your datamart
 --				you might be able to include it here instead of running this portion of the code.
 --------------------------------------------------------------------------------
-DROP TABLE XDR_WHERRY_MOM_ALLRACE PURGE;
-CREATE TABLE XDR_WHERRY_MOM_ALLRACE AS 
+DROP TABLE XDR_WHERRY_preg_pat_ALLRACE PURGE;
+CREATE TABLE XDR_WHERRY_preg_pat_ALLRACE AS 
 SELECT r.pat_id, 
 r.patient_race_c, 
 pr.name
-FROM XDR_WHERRY_MOM pat
+FROM XDR_WHERRY_preg_pat pat
 join clarity.patient_race r on pat.pat_id = r.pat_id
 JOIN clarity.zc_patient_race pr ON r.patient_race_c = pr.patient_race_c
-WHERE r.patient_race_c is not null;
+WHERE r.patient_race_c is not null
+        AND MOM_CHILD_MC = 'M';
 
 --Add counts for QA
 INSERT INTO XDR_WHERRY_COUNTS
-SELECT 'XDR_WHERRY_MOM_ALLRACE' AS TABLE_NAME
+SELECT 'XDR_WHERRY_preg_pat_ALLRACE' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	
 	,COUNT(*) AS TOTAL_COUNT 		
 	,SYSDATE AS LOAD_TIME
-FROM XDR_WHERRY_MOM_ALLRACE;
+FROM XDR_WHERRY_preg_pat_ALLRACE;
 COMMIT;
 
 --------------------------------------------------------------------------------
 --	STEP 2.5: Create NEW patient table where only one race category is applied to each patient
 --------------------------------------------------------------------------------
-DROP TABLE XDR_WHERRY_MOM_RACE PURGE;
-CREATE TABLE XDR_WHERRY_MOM_RACE AS
+DROP TABLE XDR_WHERRY_preg_pat_RACE PURGE;
+CREATE TABLE XDR_WHERRY_preg_pat_RACE AS
 SELECT DISTINCT pat_id, mapped_race_c, mapped_race_name FROM 
          (SELECT s1.pat_id, 900 AS mapped_race_c, 'Multiple Races' AS mapped_race_name       
             FROM (SELECT DISTINCT lz.pat_id
                     FROM (SELECT DISTINCT pr.pat_id
                                          ,zc.rollup_race_c    AS patient_race_c
                                          ,zc.rollup_race_name AS "NAME"
-                            FROM XDR_WHERRY_MOM_ALLRACE pr
+                            FROM XDR_WHERRY_preg_pat_ALLRACE pr
                             JOIN XDR_WHERRY_RACE_ROLLUP             zc ON pr.patient_race_c = zc.patient_race_c
                          ) lz
                     WHERE lz.patient_race_c NOT IN (7,8)                                      --7=PATIENT REFUSED, 8=UNKNOWN
@@ -157,11 +163,11 @@ SELECT DISTINCT pat_id, mapped_race_c, mapped_race_name FROM
                     FROM (SELECT DISTINCT pr.pat_id
                                          ,zc.rollup_race_c    AS patient_race_c
                                          ,zc.rollup_race_name AS "NAME"
-                            FROM XDR_WHERRY_MOM_ALLRACE pr
+                            FROM XDR_WHERRY_preg_pat_ALLRACE pr
                             JOIN XDR_WHERRY_RACE_ROLLUP             zc ON pr.patient_race_c = zc.patient_race_c
                          ) lz
-                    WHERE EXISTS (SELECT DISTINCT lz2.pat_id FROM XDR_WHERRY_MOM_ALLRACE lz2 WHERE lz.pat_id = lz2.pat_id AND lz2.patient_race_c = 7)
-                      AND EXISTS (SELECT DISTINCT lz2.pat_id FROM XDR_WHERRY_MOM_ALLRACE lz2 WHERE lz.pat_id = lz2.pat_id AND lz2.patient_race_c = 8)
+                    WHERE EXISTS (SELECT DISTINCT lz2.pat_id FROM XDR_WHERRY_preg_pat_ALLRACE lz2 WHERE lz.pat_id = lz2.pat_id AND lz2.patient_race_c = 7)
+                      AND EXISTS (SELECT DISTINCT lz2.pat_id FROM XDR_WHERRY_preg_pat_ALLRACE lz2 WHERE lz.pat_id = lz2.pat_id AND lz2.patient_race_c = 8)
                     GROUP BY lz.pat_id HAVING count(*) = 2) s1
           UNION ALL
           SELECT DISTINCT s1.pat_id                                                           --SINGLE ONLY (E.G. ANY SINGLE OCCURRENCE OF RACE)
@@ -171,11 +177,11 @@ SELECT DISTINCT pat_id, mapped_race_c, mapped_race_name FROM
                     FROM (SELECT DISTINCT pr.pat_id
                                          ,zc.rollup_race_c    AS patient_race_c
                                          ,zc.rollup_race_name AS "NAME"
-                            FROM XDR_WHERRY_MOM_ALLRACE pr
+                            FROM XDR_WHERRY_preg_pat_ALLRACE pr
                             JOIN XDR_WHERRY_RACE_ROLLUP             zc ON pr.patient_race_c = zc.patient_race_c
                          ) lz
                     GROUP BY lz.pat_id HAVING count(*) = 1) s1
-            JOIN XDR_WHERRY_MOM_ALLRACE lz ON s1.pat_id = lz.pat_id
+            JOIN XDR_WHERRY_preg_pat_ALLRACE lz ON s1.pat_id = lz.pat_id
             JOIN i2b2.race_rollup             zc ON lz.patient_race_c = zc.patient_race_c
           UNION ALL 
           SELECT DISTINCT s1.pat_id                                                           --PATREF AND UNKNOWN WITH ANOTHER SINGLE RACE, USE SINGLE RACE (E.G. 1,7,8 or 2,7, 4,14,7)
@@ -185,12 +191,12 @@ SELECT DISTINCT pat_id, mapped_race_c, mapped_race_name FROM
                     FROM (SELECT DISTINCT pr.pat_id
                                          ,zc.rollup_race_c    AS patient_race_c
                                          ,zc.rollup_race_name AS "NAME"
-                            FROM XDR_WHERRY_MOM_ALLRACE pr
+                            FROM XDR_WHERRY_preg_pat_ALLRACE pr
                             JOIN XDR_WHERRY_RACE_ROLLUP             zc ON pr.patient_race_c = zc.patient_race_c
                          ) lz
                     WHERE lz.patient_race_c NOT IN (7,8)                                      --7=PATIENT REFUSED, 8=UNKNOWN
                     GROUP BY lz.pat_id HAVING count(*) = 1) s1
-            JOIN XDR_WHERRY_MOM_ALLRACE lz ON s1.pat_id = lz.pat_id
+            JOIN XDR_WHERRY_preg_pat_ALLRACE lz ON s1.pat_id = lz.pat_id
             JOIN XDR_WHERRY_RACE_ROLLUP             zc ON lz.patient_race_c = zc.patient_race_c
             WHERE lz.patient_race_c NOT IN (7,8) 
          --) x WHERE x.pat_id = p.pat_id
@@ -199,54 +205,56 @@ SELECT DISTINCT pat_id, mapped_race_c, mapped_race_name FROM
 
 --Add counts for QA
 INSERT INTO XDR_WHERRY_COUNTS(TABLE_NAME,PAT_COUNT,TOTAL_COUNT)
-SELECT 'XDR_WHERRY_MOM_RACE' AS TABLE_NAME
+SELECT 'XDR_WHERRY_preg_pat_RACE' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT		--3,738(9/1/17)
 	,COUNT(*) AS TOTAL_COUNT 			--3,738(9/1/17)
-FROM XDR_WHERRY_MOM_RACE;
+FROM XDR_WHERRY_preg_pat_RACE;
 COMMIT;
 --------------------------------------------------------------------------------
 --	STEP 2.6: Update race name accordingly
 --------------------------------------------------------------------------------	  
-MERGE INTO XDR_WHERRY_MOM pat
+MERGE INTO XDR_WHERRY_preg_pat pat
 using
   (select pat_id
         ,MAPPED_RACE_NAME
-  FROM XDR_WHERRY_MOM_RACE
+  FROM XDR_WHERRY_preg_pat_RACE
   ) r
   on (pat.pat_id = r.pat_id)
   when matched then
       update set MAPPED_RACE_NAME = r.MAPPED_RACE_NAME;
 COMMIT;      
 
-select * from XDR_WHERRY_MOM;   
+select * from XDR_WHERRY_preg_pat;   
 --------------------------------------------------------------------------------
---	Step 2.7: Create Patient Table
+--	Step 2.7: Insert children records
 --------------------------------------------------------------------------------
-DROP TABLE XDR_WHERRY_CHILD PURGE;
-  CREATE TABLE XDR_WHERRY_CHILD
-   ("STUDY_ID" NUMBER,
-	"PAT_ID" VARCHAR2(18 BYTE), 
-    "MOM_PAT_ID" VARCHAR2(18 BYTE), 
---    "FIRST_HOSP_DATE" DATE,
---    "PAT_ENC_CSN_ID" VARCHAR(11),
---	"BIRTH_DATE" DATE, 
---	"DEATH_DATE" DATE, 
-	"PATIENT_STATUS" VARCHAR2(254 BYTE), 
-	"ETHNIC_GROUP_C" NUMBER(38,0), 
-	"ETHNIC_GROUP" VARCHAR2(254 BYTE), 
-	"SEX" VARCHAR2(254 BYTE), 
-	"MAPPED_RACE_NAME" VARCHAR2(254 BYTE), 
-	"RESTRICTED_YN" VARCHAR2(1 BYTE), 
-	"MAPPED_RACE_C" NUMBER(38,0),
-    "BENEFIT_PLAN_NAME" VARCHAR2(254 BYTE),
-    "FINANCIAL_CLASS" VARCHAR2(254 BYTE)
-  );  
+--DROP TABLE XDR_WHERRY_CHILD PURGE;
+--  CREATE TABLE XDR_WHERRY_CHILD
+--   ("STUDY_ID" NUMBER,
+--	"PAT_ID" VARCHAR2(18 BYTE), 
+--    "MOM_PAT_ID" VARCHAR2(18 BYTE), 
+----    "FIRST_HOSP_DATE" DATE,
+----    "PAT_ENC_CSN_ID" VARCHAR(11),
+----	"BIRTH_DATE" DATE, 
+----	"DEATH_DATE" DATE, 
+--	"PATIENT_STATUS" VARCHAR2(254 BYTE), 
+--	"ETHNIC_GROUP_C" NUMBER(38,0), 
+--	"ETHNIC_GROUP" VARCHAR2(254 BYTE), 
+--	"SEX" VARCHAR2(254 BYTE), 
+--	"MAPPED_RACE_NAME" VARCHAR2(254 BYTE), 
+--	"RESTRICTED_YN" VARCHAR2(1 BYTE), 
+--	"MAPPED_RACE_C" NUMBER(38,0),
+--    "BENEFIT_PLAN_NAME" VARCHAR2(254 BYTE),
+--    "FINANCIAL_CLASS" VARCHAR2(254 BYTE)
+--  );  
 
 
 
-INSERT INTO XDR_WHERRY_CHILD
+INSERT INTO XDR_WHERRY_preg_pat
 SELECT rownum as study_id,
-pat.* from
+pat.*, 
+'C' AS MOM_CHILD_MC 
+from
 (SELECT DISTINCT coh.pat_id,
 coh.mom_pat_id,
 --coh.FIRST_HOSP_DATE,
@@ -299,29 +307,35 @@ ORDER BY  dbms_random.value
 --17,000 rows inserted.
 COMMIT;
 
+select count(*),mom_child_mc
+from XDR_WHERRY_preg_pat
+group by mom_child_mc;
+
 --Add counts for QA
 INSERT INTO XDR_WHERRY_COUNTS(TABLE_NAME,PAT_COUNT,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_PAT' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,738(9/1/17)
 	,COUNT(*) AS TOTAL_COUNT 		-- 3,738(9/1/17)
-FROM XDR_WHERRY_CHILD;
+FROM XDR_WHERRY_preg_pat;
 COMMIT;
 
-SELECT * FROM XDR_WHERRY_CHILD ORDER BY PAT_ID;
+SELECT * FROM XDR_WHERRY_preg_pat ORDER BY PAT_ID;
 --------------------------------------------------------------------------------
 --	STEP 2.8: Create patient table with all the mapped race values that apply to each patient
 --				This process is the one used for UCRex, therefore if you already have this in your datamart
 --				you might be able to include it here instead of running this portion of the code.
+--              Reutilize same table for all race
 --------------------------------------------------------------------------------
-DROP TABLE XDR_WHERRY_CHILD_ALLRACE PURGE;
-CREATE TABLE XDR_WHERRY_CHILD_ALLRACE AS 
+DROP TABLE XDR_WHERRY_preg_pat_ALLRACE PURGE;
+CREATE TABLE XDR_WHERRY_preg_pat_ALLRACE AS 
 SELECT r.pat_id, 
 r.patient_race_c, 
 pr.name
-FROM XDR_WHERRY_CHILD pat
+FROM XDR_WHERRY_preg_pat pat
 join clarity.patient_race r on pat.pat_id = r.pat_id
 JOIN clarity.zc_patient_race pr ON r.patient_race_c = pr.patient_race_c
-WHERE r.patient_race_c is not null;
+WHERE r.patient_race_c is not null
+AND MOM_CHILD_MC = 'C';
 
 --Add counts for QA
 INSERT INTO XDR_WHERRY_COUNTS
@@ -329,21 +343,22 @@ SELECT 'XDR_WHERRY_CHILD_ALLRACE' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	
 	,COUNT(*) AS TOTAL_COUNT 		
 	,SYSDATE AS LOAD_TIME
-FROM XDR_WHERRY_CHILD_ALLRACE;
+FROM XDR_WHERRY_preg_pat_ALLRACE;
 COMMIT;
 
 --------------------------------------------------------------------------------
 --	STEP 2.9: Create NEW patient table where only one race category is applied to each patient
+--              Reutilize same table for race
 --------------------------------------------------------------------------------
-DROP TABLE XDR_WHERRY_CHILD_RACE PURGE;
-CREATE TABLE XDR_WHERRY_CHILD_RACE AS
+DROP TABLE XDR_WHERRY_preg_pat_RACE PURGE;
+CREATE TABLE XDR_WHERRY_preg_pat_RACE AS
 SELECT DISTINCT pat_id, mapped_race_c, mapped_race_name FROM 
          (SELECT s1.pat_id, 900 AS mapped_race_c, 'Multiple Races' AS mapped_race_name       
             FROM (SELECT DISTINCT lz.pat_id
                     FROM (SELECT DISTINCT pr.pat_id
                                          ,zc.rollup_race_c    AS patient_race_c
                                          ,zc.rollup_race_name AS "NAME"
-                            FROM XDR_WHERRY_CHILD_ALLRACE pr
+                            FROM XDR_WHERRY_preg_pat_ALLRACE pr
                             JOIN XDR_WHERRY_RACE_ROLLUP             zc ON pr.patient_race_c = zc.patient_race_c
                          ) lz
                     WHERE lz.patient_race_c NOT IN (7,8)                                      --7=PATIENT REFUSED, 8=UNKNOWN
@@ -354,7 +369,7 @@ SELECT DISTINCT pat_id, mapped_race_c, mapped_race_name FROM
                     FROM (SELECT DISTINCT pr.pat_id
                                          ,zc.rollup_race_c    AS patient_race_c
                                          ,zc.rollup_race_name AS "NAME"
-                            FROM XDR_WHERRY_CHILD_ALLRACE pr
+                            FROM XDR_WHERRY_preg_pat_ALLRACE pr
                             JOIN XDR_WHERRY_RACE_ROLLUP             zc ON pr.patient_race_c = zc.patient_race_c
                          ) lz
                     WHERE EXISTS (SELECT DISTINCT lz2.pat_id FROM XDR_WHERRY_CHILD_ALLRACE lz2 WHERE lz.pat_id = lz2.pat_id AND lz2.patient_race_c = 7)
@@ -368,7 +383,7 @@ SELECT DISTINCT pat_id, mapped_race_c, mapped_race_name FROM
                     FROM (SELECT DISTINCT pr.pat_id
                                          ,zc.rollup_race_c    AS patient_race_c
                                          ,zc.rollup_race_name AS "NAME"
-                            FROM XDR_WHERRY_CHILD_ALLRACE pr
+                            FROM XDR_WHERRY_preg_pat_ALLRACE pr
                             JOIN XDR_WHERRY_RACE_ROLLUP             zc ON pr.patient_race_c = zc.patient_race_c
                          ) lz
                     GROUP BY lz.pat_id HAVING count(*) = 1) s1
@@ -382,12 +397,12 @@ SELECT DISTINCT pat_id, mapped_race_c, mapped_race_name FROM
                     FROM (SELECT DISTINCT pr.pat_id
                                          ,zc.rollup_race_c    AS patient_race_c
                                          ,zc.rollup_race_name AS "NAME"
-                            FROM XDR_WHERRY_CHILD_ALLRACE pr
+                            FROM XDR_WHERRY_preg_pat_ALLRACE pr
                             JOIN XDR_WHERRY_RACE_ROLLUP             zc ON pr.patient_race_c = zc.patient_race_c
                          ) lz
                     WHERE lz.patient_race_c NOT IN (7,8)                                      --7=PATIENT REFUSED, 8=UNKNOWN
                     GROUP BY lz.pat_id HAVING count(*) = 1) s1
-            JOIN XDR_WHERRY_CHILD_ALLRACE lz ON s1.pat_id = lz.pat_id
+            JOIN XDR_WHERRY_preg_pat_ALLRACE lz ON s1.pat_id = lz.pat_id
             JOIN XDR_WHERRY_RACE_ROLLUP             zc ON lz.patient_race_c = zc.patient_race_c
             WHERE lz.patient_race_c NOT IN (7,8) 
          --) x WHERE x.pat_id = p.pat_id
@@ -404,15 +419,15 @@ COMMIT;
 --------------------------------------------------------------------------------
 --	STEP 2.10: Update race name accordingly
 --------------------------------------------------------------------------------	  
-MERGE INTO XDR_WHERRY_CHILD pat
+MERGE INTO XDR_WHERRY_preg_pat pat
 using
   (select pat_id
         ,MAPPED_RACE_NAME
-  FROM XDR_WHERRY_CHILD_RACE
+  FROM XDR_WHERRY_preg_pat_RACE
   ) r
   on (pat.pat_id = r.pat_id)
   when matched then
       update set MAPPED_RACE_NAME = r.MAPPED_RACE_NAME;
 COMMIT;      
 
-select * from XDR_WHERRY_CHILD;   
+select * from XDR_WHERRY_preg_pat;   
