@@ -485,3 +485,101 @@ SELECT 'XDR_Wherry_preg_FLO' AS TABLE_NAME
 FROM XDR_Wherry_preg_FLO;
 COMMIT;
 
+--------------------------------------------------------------------------------
+-- STEP 6.6: Create Social History table
+--------------------------------------------------------------------------------
+DROP TABLE XDR_Wherry_preg_SOC PURGE;
+CREATE TABLE XDR_Wherry_preg_SOC AS
+SELECT DISTINCT coh.pat_id 
+               ,coh.study_id
+               ,soc.pat_enc_csn_id            
+               ,soc.pat_enc_date_real
+               ,pat.birth_date
+               ,trunc(months_between(CURRENT_DATE, pat.birth_date)/12) AS age
+               ,xsx.NAME                                               AS gender
+            --Get sexual history below
+               ,xsa.NAME                                               AS sexually_active
+               ,soc.female_partner_yn                                           --never nulls; defaults to "N" when unchecked
+               ,soc.male_partner_yn                                             --never nulls; defaults to "N" when unchecked
+               ,soc.condom_yn
+               ,soc.pill_yn
+               ,soc.diaphragm_yn
+               ,soc.iud_yn
+               ,soc.surgical_yn
+               ,soc.spermicide_yn
+               ,soc.implant_yn
+               ,soc.rhythm_yn
+               ,soc.injection_yn
+               ,soc.sponge_yn
+               ,soc.inserts_yn
+               ,soc.abstinence_yn
+            --Get tobacco history below
+               ,soc.tobacco_pak_per_dy
+               ,soc.tobacco_used_years
+               ,xtb.NAME                                               AS tobacco_user
+               ,soc.cigarettes_yn
+               ,soc.pipes_yn 
+               ,soc.cigars_yn
+               ,soc.snuff_yn
+               ,soc.chew_yn 
+               ,xsm.NAME                                               AS smoking_tob_status
+               ,soc.smoking_start_date
+               ,soc.smoking_quit_date
+            --Get alcohol history below
+               ,soc.alcohol_comment                                    AS alcohol_comments 
+               ,xal.NAME                                               AS alcohol_user
+               ,soc.alcohol_oz_per_wk
+               ,xdt.NAME                                               AS alcohol_type
+               ,soa.alcohol_drinks_wk 
+            --Get drug history below
+               ,soc.iv_drug_user_yn 
+               ,soc.illicit_drug_freq  
+               ,soc.illicit_drug_cmt 
+  FROM XDR_Wherry_preg_PAT                              coh
+  JOIN clarity.patient                    pat ON coh.pat_id = pat.pat_id
+  LEFT JOIN clarity.social_hx           soc ON pat.pat_id = soc.pat_id
+  LEFT JOIN clarity.social_hx_alc_use   soa ON soc.pat_enc_csn_id = soa.pat_enc_csn_id
+  LEFT JOIN clarity.zc_sexually_active  xsa ON soc.sexually_active_c = xsa.sexually_active_c
+  LEFT JOIN clarity.zc_sex              xsx ON pat.sex_c = xsx.rcpt_mem_sex_c
+  LEFT JOIN clarity.zc_tobacco_user     xtb ON soc.tobacco_user_c = xtb.tobacco_user_c
+  LEFT JOIN clarity.zc_smoking_tob_use  xsm ON soc.smoking_tob_use_c = xsm.smoking_tob_use_c
+  LEFT JOIN clarity.zc_alcohol_use      xal ON soc.alcohol_use_c = xal.alcohol_use_c
+  LEFT JOIN clarity.zc_hx_drink_types   xdt ON soa.hx_drink_types_c = xdt.hx_drink_types_c
+  WHERE soc.pat_enc_date_real = (SELECT MAX(soc.pat_enc_date_real) FROM social_hx soc WHERE soc.pat_id = coh.pat_id)
+;
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_SOC' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
+	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
+FROM XDR_Wherry_preg_SOC;
+COMMIT;
+
+
+--------------------------------------------------------------------------------
+-- STEP 6.7: Create Family History table
+--------------------------------------------------------------------------------
+DROP TABLE xdr_Wherry_preg_fam PURGE;
+CREATE TABLE xdr_Wherry_preg_fam AS
+SELECT DISTINCT pat.pat_id 
+               ,pat.study_id
+               ,fam.pat_enc_csn_id       
+               ,fam.line
+               ,fam.medical_hx_c
+               ,xmh.NAME                  AS medical_hx
+               ,fam.relation_c
+               ,xrc.NAME                  AS relation
+  FROM XDR_Wherry_preg_PAT              pat
+  JOIN clarity.family_hx                fam ON pat.pat_id = fam.pat_id
+  LEFT JOIN clarity.zc_medical_hx       xmh ON fam.medical_hx_c = xmh.medical_hx_c
+  LEFT JOIN clarity.zc_msg_caller_rel   xrc ON fam.relation_c = xrc.msg_caller_rel_c 
+  WHERE fam.pat_enc_date_real = (SELECT MAX(fam.pat_enc_date_real) FROM clarity.family_hx fam WHERE fam.pat_id = pat.pat_id)
+;
+
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_FAM' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
+	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
+FROM XDR_Wherry_preg_FAM;
+COMMIT;
