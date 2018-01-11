@@ -1,4 +1,15 @@
 -- *******************************************************************************************************
+-- STEP 0
+--		Create table to capture all data counts
+-- *******************************************************************************************************
+DROP TABLE XDR_WHERRY_preg_COUNTS PURGE;
+CREATE TABLE XDR_WHERRY_preg_COUNTS
+   (	TABLE_NAME VARCHAR2(30 BYTE), 
+	PAT_COUNT NUMBER,
+	TOTAL_COUNT NUMBER,
+	LOAD_TIME timestamp default systimestamp);
+
+-- *******************************************************************************************************
 -- STEP 1
 --   Create an initial Patient table with ALL mother-child records avaialble in Clarity
 -- *******************************************************************************************************
