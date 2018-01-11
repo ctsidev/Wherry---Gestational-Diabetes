@@ -40,7 +40,13 @@ SELECT DISTINCT nb.pat_id                                               AS nb_pa
  select count(*), count(distinct NB_pat_id), count(distinct mom_pat_id) from xdr_wherry_all_mom_child;     --17087	17087	14837
 --ALTER TABLE xdr_wherry_prg_pat ADD CONSTRAINT xdr_wherry_prg_pat_pk PRIMARY KEY (pat_id);
 
-
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'xdr_wherry_all_mom_child' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
+	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
+FROM xdr_wherry_all_mom_child;
+COMMIT;
 -- *******************************************************************************************************
 -- STEP 
 --   Create the cohort table based on the criteria (DX)
@@ -129,3 +135,11 @@ FROM xdr_wherry_prg_cohdx dx
 join i2b2.lz_dx_px_lookup lk on dx.icd_code = lk.code
                             and dx.icd_type = lk.ICD_TYPE
                             and lk.code_type = 'DX'
+
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'xdr_wherry_prg_cohdx' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
+	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
+FROM xdr_wherry_prg_cohdx;
+COMMIT;
