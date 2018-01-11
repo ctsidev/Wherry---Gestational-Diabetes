@@ -416,6 +416,7 @@ SELECT 'XDR_WHERRY_CHILD_RACE' AS TABLE_NAME
 	,COUNT(*) AS TOTAL_COUNT 			--3,738(9/1/17)
 FROM XDR_WHERRY_CHILD_RACE;
 COMMIT;
+
 --------------------------------------------------------------------------------
 --	STEP 2.10: Update race name accordingly
 --------------------------------------------------------------------------------	  
