@@ -486,7 +486,7 @@ FROM XDR_Wherry_preg_FLO;
 COMMIT;
 
 --------------------------------------------------------------------------------
--- STEP 6.6: Create Social History table
+-- STEP 6.7: Create Social History table
 --------------------------------------------------------------------------------
 DROP TABLE XDR_Wherry_preg_SOC PURGE;
 CREATE TABLE XDR_Wherry_preg_SOC AS
@@ -557,7 +557,7 @@ COMMIT;
 
 
 --------------------------------------------------------------------------------
--- STEP 6.7: Create Family History table
+-- STEP 6.8: Create Family History table
 --------------------------------------------------------------------------------
 DROP TABLE xdr_Wherry_preg_fam PURGE;
 CREATE TABLE xdr_Wherry_preg_fam AS
@@ -582,4 +582,193 @@ SELECT 'XDR_Wherry_preg_FAM' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
 	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
 FROM XDR_Wherry_preg_FAM;
+COMMIT;
+
+--------------------------------------------------------------------------------
+-- STEP 6.9: Create Problem List table
+--------------------------------------------------------------------------------
+DROP TABLE xdr_Wherry_preg_pl purge;
+CREATE TABLE xdr_Wherry_preg_pl AS
+SELECT DISTINCT enc.pat_id
+               ,enc.study_id
+               ,enc.pat_enc_csn_id
+               ,enc.effective_date_dt          AS encounter_date
+               ,pl.problem_list_id
+               ,pl.hx_problem_id               AS dx_id
+               ,pl.hx_description              AS prob_desc 
+               ,pl.hx_date_noted               AS noted_date
+               ,pl.hx_date_of_entry            AS update_date
+               ,pl.hx_date_resolved            AS resolved_date
+               ,zps.name                       AS problem_status
+               ,pl.hx_comment                  AS problem_cmt     
+               ,zhp.name                       AS priority
+               ,pl.hx_is_hosp_yn               AS hospital_problem
+               ,pl.hx_principal_yn             AS principal_yn
+               ,pl.hx_chronic_yn               AS chronic_yn             
+               --,pl.PROBLEM_TYPE_C              --1-MEDICAL   2-NURSING   3-Hospitalization       (in progress)           
+               
+               --ICD9 CODES
+               --,'9'                            AS icd_type
+               --,cin9.code                      AS icd_code
+               --,icd9.ICD_DESC                  AS icd_desc
+  
+               --ICD10 CODES
+               --,'10'                           AS icd_type
+               --,cin10.code                     AS ICD_code
+               --,icd10.ICD_DESC                 AS ICD_DESC
+               --,DSC10.DESCRIPTION              AS ICD10_Diagnosis_desc               
+
+               ,ser.prov_id                           
+               ,ser.prov_type          
+               ,prv.primary_specialty         
+  FROM xdr_Wherry_preg_enc                      enc
+  JOIN clarity.problem_list_hx            pl    ON enc.pat_enc_csn_id = pl.hx_problem_ept_csn
+  LEFT JOIN clarity.clarity_ser           ser   ON pl.hx_entry_user_id = ser.user_id
+  LEFT JOIN clarity.v_cube_d_provider     prv   ON ser.prov_id = prv.provider_id
+  LEFT JOIN clarity.zc_problem_status     zps   ON pl.hx_status_c = zps.problem_status_c
+  LEFT JOIN clarity.zc_hx_priority        zhp   ON pl.hx_priority_c = zhp.hx_priority_c
+  
+  --ICD9 CODES
+  --LEFT JOIN edg_current_icd9              cin9  ON pl.DX_ID = cin9.dx_id AND cin9.line = 1
+  --LEFT JOIN i2b2.lz_dx_px_lookup          icd9   ON cin9.code = icd9.code
+  --                                              AND icd9.code_type = 'DX' 
+  --                                              AND icd9.icd_type = 9
+  
+  --ICD10 CODES
+  --LEFT JOIN edg_current_icd10             cin10 ON pl.DX_ID = cin10.dx_id AND cin10.line = 1
+  --LEFT JOIN i2b2.lz_dx_px_lookup          icd10 ON cin10.code = icd10.code
+  --                                              AND icd10.code_type = 'DX' 
+  --                                              AND icd10.icd_type = 10
+UNION
+SELECT DISTINCT enc.pat_id
+               ,enc.study_id
+               ,enc.pat_enc_csn_id
+               ,enc.effective_date_dt as encounter_date
+               ,pl.problem_list_id
+               ,pl.dx_id
+               ,pl.description                AS prob_desc 
+               ,pl.noted_date                 AS noted_date
+               ,pl.date_of_entry              AS update_date
+               ,pl.resolved_date              AS resolved_date
+               ,zps.name                      AS problem_status        
+               ,pl.problem_cmt                AS problem_cmt     
+               ,zhp.name                      AS priority
+               ,pl.hospital_pl_yn             AS hospital_problem
+               ,PL.PRINCIPAL_PL_YN            AS principal_yn
+               --,pl.PROBLEM_TYPE_C             --1-MEDICAL   2-NURSING   3-Hospitalization   (in progress)
+               ,pl.chronic_yn                 AS chronic_yn
+               
+               --ICD9 CODES
+               --,'9'                           AS icd_type
+               --,cin9.code                     AS ICD_code
+               --,icd9.ICD_DESC                 AS ICD_DESC
+               --,DSC9.DESCRIPTION              AS ICD9_Diagnosis_desc
+               
+               --ICD10 CODES
+               --,'10'                          AS icd_type
+               --,cin10.code                    AS ICD_code
+               --,icd10.ICD_DESC                AS ICD_DESC
+               --,DSC10.DESCRIPTION             AS ICD10_Diagnosis_desc
+                              
+               ,ser.prov_id                           
+               ,ser.prov_type          
+               ,prv.primary_specialty      
+  FROM xdr_Wherry_preg_enc                        enc
+  JOIN clarity.problem_list                 pl    ON enc.pat_enc_csn_id = pl.problem_ept_csn AND rec_archived_yn = 'N'
+  LEFT JOIN clarity.clarity_ser             ser   ON pl.entry_user_id = ser.user_id
+  LEFT JOIN clarity.v_cube_d_provider       prv   ON ser.prov_id = prv.provider_id
+  LEFT JOIN clarity.zc_problem_status       zps   ON pl.problem_status_c = zps.problem_status_c
+  LEFT JOIN clarity.zc_hx_priority          zhp   ON pl.priority_c = zhp.hx_priority_c
+  
+  --ICD9 CODES
+  --LEFT JOIN edg_current_icd9                cin9  ON pl.dx_id = cin9.dx_id AND cin9.line = 1
+  --LEFT JOIN i2b2.lz_dx_px_lookup            icd9  ON cin9.code = icd9.code
+  --                                                AND icd9.code_type = 'DX' 
+  --                                                AND icd9.icd_type = 9
+ 
+  --ICD10 CODES
+  --LEFT JOIN edg_current_icd10               cin10 ON pl.dx_id = cin10.dx_id AND cin10.line = 1
+  --LEFT JOIN i2b2.lz_dx_px_lookup            icd10 ON cin10.code = icd10.code
+  --                                                AND icd10.code_type = 'DX' 
+  --                                                AND icd10.icd_type = 10
+;
+
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'xdr_Wherry_preg_pl' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
+	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
+FROM xdr_Wherry_preg_pl;
+COMMIT;
+
+
+--------------------------------------------------------------------------------
+-- STEP 6.10: Create Problem List Diagnosis table
+--------------------------------------------------------------------------------
+DROP TABLE xdr_Wherry_preg_pldx PURGE;
+CREATE TABLE xdr_Wherry_preg_pldx AS
+SELECT DISTINCT PAT_ID,
+              STUDY_ID,
+              PAT_ENC_CSN_ID,
+              'PROBLEM_LIST'           AS diagnosis_source, 
+              --DX_ID,								commented out on 6/9/17 to avoid confusion
+              PROBLEM_LIST_ID,
+              NOTED_DATE               AS diagnosis_date,
+              PRINCIPAL_YN             AS primary_dx_yn, 
+              --NULL                     AS SOURCE,
+              --ICD CODES
+              case when NOTED_DATE <= '01/01/2015' then icd9.icd_type else icd10.icd_type end icd_type,
+              case when NOTED_DATE <= '01/01/2015' then icd9.code else icd10.code end icd_code,
+              case when NOTED_DATE <= '01/01/2015' then icd9.icd_desc else icd10.icd_desc end icd_desc
+FROM xdr_Wherry_preg_pl               pl
+  --ICD9 CODES JOIN
+  LEFT JOIN clarity.edg_current_icd9                cin9  ON pl.dx_id = cin9.dx_id AND cin9.line = 1
+  LEFT JOIN i2b2.lz_dx_px_lookup          icd9   ON cin9.code = icd9.CODE
+                                                AND icd9.code_type = 'DX' 
+                                                AND icd9.icd_type = 9
+  --ICD10 CODES JOIN
+  LEFT JOIN clarity.edg_current_icd10             cin10 ON pl.DX_ID = cin10.dx_id AND cin10.line = 1
+  LEFT JOIN i2b2.lz_dx_px_lookup          icd10   ON cin10.code = icd10.CODE
+                                                AND icd10.code_type = 'DX' 
+                                                AND icd10.icd_type = 10
+;
+
+
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'xdr_Wherry_preg_pldx' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	
+	,COUNT(*) AS TOTAL_COUNT 		
+FROM xdr_Wherry_preg_pldx;
+COMMIT;
+
+
+--------------------------------------------------------------------------------
+-- STEP 6.11: Create Providers table
+--------------------------------------------------------------------------------
+DROP TABLE xdr_Wherry_preg_prov PURGE;
+CREATE TABLE xdr_Wherry_preg_prov AS
+SELECT DISTINCT enc.visit_prov_id               AS provider_id,
+                --Provider Gender(?)
+                prv.provider_type,
+                prv.primary_specialty,
+                CASE WHEN   ser.ACTIVE_STATUS = 'Active'  AND  emp.USER_STATUS_C = 1 THEN 1
+                    ELSE NULL 
+                END active_providers,
+                CASE WHEN   emp.user_id IS NOT NULL THEN 1
+                    ELSE NULL
+                END UCLA_provider
+FROM xdr_Wherry_preg_enc                  enc
+LEFT JOIN clarity.v_cube_d_provider       prv   ON enc.visit_prov_id = prv.provider_id
+--check for active providers
+LEFT JOIN clarity.clarity_ser                     ser ON enc.visit_prov_id = ser.PROV_ID
+LEFT JOIN clarity.CLARITY_EMP                     emp ON ser.PROV_ID = emp.PROV_ID 
+;
+
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'xdr_Wherry_preg_prov' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	
+	,COUNT(*) AS TOTAL_COUNT 		
+FROM xdr_Wherry_preg_prov;
 COMMIT;
