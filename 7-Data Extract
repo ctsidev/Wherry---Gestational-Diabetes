@@ -223,22 +223,14 @@ SELECT DISTINCT soc.study_id
 --------------------------------------------------------------------------------
 -- STEP 7.12: Providers table
 --------------------------------------------------------------------------------
-SELECT DISTINCT enc.visit_prov_id               AS provider_id,
-                --Provider Gender(?)
-                prv.provider_type,
-                prv.primary_specialty,
-                CASE WHEN   ser.ACTIVE_STATUS = 'Active'  AND  emp.USER_STATUS_C = 1 THEN 1
-                    ELSE NULL 
-                END active_providers,
-                CASE WHEN   emp.user_id IS NOT NULL THEN 1
-                    ELSE NULL
-                END UCLA_provider
-FROM xdr_Wherry_preg_enc                  enc
-LEFT JOIN clarity.v_cube_d_provider       prv   ON enc.visit_prov_id = prv.provider_id
---check for active providers
-LEFT JOIN clarity.clarity_ser                     ser ON enc.visit_prov_id = ser.PROV_ID
-LEFT JOIN clarity.CLARITY_EMP                     emp ON ser.PROV_ID = emp.PROV_ID 
-;
+SELECT DISTINCT PROV_STUDY_ID
+		--DEID_PROV_ID
+		,PRIMARY_SPECIALTY
+		,PROVIDER_TYPE
+		,UC_PROVIDER
+		,ACTIVE_PROVIDERS
+FROM xdr_Wherry_preg_prov
+ORDER BY PROV_STUDY_ID;
 
 --------------------------------------------------------------------------------
 -- STEP 7.12: Data counts 
