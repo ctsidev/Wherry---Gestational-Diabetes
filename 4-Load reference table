@@ -6,7 +6,7 @@
 --	STEP 4.1: Create Diagnoses reference table
 --------------------------------------------------------------------------------  
 DROP TABLE XDR_Wherry_preg_DX_LOOKUP PURGE;
-CREATE TABLE XDR_BAGHDADI_DX_LOOKUP AS
+CREATE TABLE XDR_BAGHDADI_DX_LOOKUP
    (	"CODE" VARCHAR2(20 BYTE), 
 	"ICD_TYPE" NUMBER(*,0), 
 	"ICD_DESC" VARCHAR2(254 BYTE));
