@@ -5,7 +5,7 @@
 --------------------------------------------------------------------------------
 --	STEP 4.1: Create Diagnoses reference table
 --------------------------------------------------------------------------------  
-DROP TABLE XDR_BAGHDADI_DX_LOOKUP PURGE;
+DROP TABLE XDR_Wherry_preg_DX_LOOKUP PURGE;
 CREATE TABLE XDR_BAGHDADI_DX_LOOKUP AS
    (	"CODE" VARCHAR2(20 BYTE), 
 	"ICD_TYPE" NUMBER(*,0), 
@@ -19,9 +19,9 @@ CREATE TABLE XDR_BAGHDADI_DX_LOOKUP AS
 -- The file shall be formatted as a CSV with double quotation marks as text identifier.
 
 --Add counts for QA
-INSERT INTO XDR_BAGHDADI_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'XDR_BAGHDADI_DX_LOOKUP' AS TABLE_NAME
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_Wherry_preg_DX_LOOKUP' AS TABLE_NAME
 	,NULL AS PAT_COUNT		
 	,COUNT(*) AS TOTAL_COUNT 		--112,803(10/12/17)
-FROM XDR_BAGHDADI_DX_LOOKUP;
+FROM XDR_Wherry_preg_DX_LOOKUP;
 COMMIT;
