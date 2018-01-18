@@ -233,6 +233,52 @@ FROM xdr_Wherry_preg_prov
 ORDER BY PROV_STUDY_ID;
 
 --------------------------------------------------------------------------------
--- STEP 7.12: Data counts 
+-- STEP 7.13: Problem list Pull ---------------------------------------------------------------
+--------------------------------------------------------------------------------
+SELECT DISTINCT pat.study_id
+               ,enck.encounter_id
+               ,pl.encounter_date 
+               ,EXTRACT(YEAR FROM pl.encounter_date) year_encounter_date
+               ,(pl.encounter_date - pat.first_enc_date) enc_dt_days_first_enc
+               ,pl.problem_list_id
+               ,pl.prob_desc 
+               ,EXTRACT(YEAR FROM pl.noted_date  ) year_noted_date
+               ,(pl.noted_date - pat.first_enc_date) note_dt_days_first_enc
+               ,EXTRACT(YEAR FROM pl.update_date  ) year_entry_date
+               ,(pl.update_date - pat.first_enc_date) entry_dt_days_first_enc
+               ,EXTRACT(YEAR FROM pl.resolved_date  ) year_resolved_date
+               ,(pl.resolved_date - pat.first_enc_date) resolved_dt_days_first_enc
+               ,pl.problem_status
+               --,pl.problem_cmt             
+               ,pl.priority
+               --,pl.hospital_problem
+               ,principal_yn
+               --,pl.prov_id                           
+               --,pl.prov_type          
+               --,pl.primary_specialty   
+  FROM xdr_Wherry_preg_pl                pl
+  JOIN xdr_WHerry_preg_pat               pat on pl.pat_id = pat.pat_id
+  LEFT JOIN XDR_WHERRY_preg_ENCKEY       enck on pl.pat_enc_csn_id = enck.pat_enc_csn_id;
+
+--------------------------------------------------------------------------------
+-- STEP 7.14: Problem List Diagnosis Pull 
+--------------------------------------------------------------------------------
+SELECT DISTINCT pat.study_id
+               ,pdx.PROBLEM_LIST_ID
+               ,enck.encounter_id
+               ,pdx.diagnosis_source
+               ,pdx.icd_type
+               ,pdx.icd_code
+               ,pdx.icd_desc
+               ,EXTRACT(YEAR FROM pdx.diagnosis_date  ) year_diagnosis_date
+               ,(pdx.diagnosis_date - pat.first_enc_date) diagnosis_dt_days_first_enc
+               ,pdx.primary_dx_yn
+  FROM xdr_Wherry_preg_pldx              pdx
+  JOIN xdr_WHerry_preg_pat               pat on pdx.pat_id = pat.pat_id
+  LEFT JOIN XDR_WHERRY_preg_ENCKEY       enck on pdx.pat_enc_csn_id = enck.pat_enc_csn_id
+  ORDER BY pat.study_id, encounter_id, icd_type, icd_code;
+  
+--------------------------------------------------------------------------------
+-- STEP 7.15: Data counts 
 --------------------------------------------------------------------------------
 SELECT * FROM XDR_WHERRY_preg_COUNTS ;
