@@ -193,7 +193,7 @@ ORDER BY pat.study_id, allergen_name;
 -- STEP 7.10: Family History Pull 
 --------------------------------------------------------------------------------
 SELECT DISTINCT fam.study_id
-                --,enck.encounter_id
+                ,enck.encounter_id
                 ,fam.line
                 ,fam.medical_hx
                 ,fam.relation
