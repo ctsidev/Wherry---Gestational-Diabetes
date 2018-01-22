@@ -3,7 +3,7 @@
 --		Pull all selected data entities into temp tables before final export
 -- ******************************************************************************************************* 
 --------------------------------------------------------------------------------
---	STEP 6.1: Labs final selection: After loading Investigator's selections back into the system, apply it to pull
+--	STEP 6.1: Create Labs table
 --------------------------------------------------------------------------------  
 DROP TABLE xdr_Wherry_preg_lab PURGE;
 CREATE TABLE xdr_Wherry_preg_lab AS 
@@ -71,7 +71,7 @@ COMMIT;
                        
 
 --------------------------------------------------------------------------------
---	STEP 6.2: Meds final selection: After loading Investigator's selections back into the system, apply it to pull
+--	STEP 6.2: Create Meds table
 -------------------------------------------------------------------------------- 
 DROP TABLE XDR_Wherry_preg_med PURGE;
 CREATE TABLE XDR_Wherry_preg_med as
@@ -152,7 +152,7 @@ FROM XDR_Wherry_preg_MED;
 COMMIT;
 
 --------------------------------------------------------------------------------
---	STEP 6.3: Allergies final selection: After loading Investigator's selections back into the system, apply it to pull
+--	STEP 6.3: Create Allergies table
 --------------------------------------------------------------------------------
 DROP TABLE xdr_Wherry_preg_alg PURGE;
 CREATE TABLE xdr_Wherry_preg_alg as
@@ -789,7 +789,6 @@ COMMIT;
 DROP TABLE xdr_Wherry_preg_pl purge;
 CREATE TABLE xdr_Wherry_preg_pl AS
 SELECT DISTINCT enc.pat_id
-               ,enc.study_id
                ,enc.pat_enc_csn_id
                ,enc.effective_date_dt          AS encounter_date
                ,pl.problem_list_id
@@ -840,7 +839,6 @@ SELECT DISTINCT enc.pat_id
   --                                              AND icd10.icd_type = 10
 UNION
 SELECT DISTINCT enc.pat_id
-               ,enc.study_id
                ,enc.pat_enc_csn_id
                ,enc.effective_date_dt as encounter_date
                ,pl.problem_list_id
@@ -891,14 +889,15 @@ SELECT DISTINCT enc.pat_id
   --                                                AND icd10.code_type = 'DX' 
   --                                                AND icd10.icd_type = 10
 ;
-
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'xdr_Wherry_preg_pl' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT	-- 30855
+	,COUNT(*) AS TOTAL_COUNT 		--387855
 FROM xdr_Wherry_preg_pl;
 COMMIT;
+
+
 
 
 --------------------------------------------------------------------------------
@@ -907,7 +906,6 @@ COMMIT;
 DROP TABLE xdr_Wherry_preg_pldx PURGE;
 CREATE TABLE xdr_Wherry_preg_pldx AS
 SELECT DISTINCT PAT_ID,
-              STUDY_ID,
               PAT_ENC_CSN_ID,
               'PROBLEM_LIST'           AS diagnosis_source, 
               --DX_ID,								commented out on 6/9/17 to avoid confusion
@@ -922,13 +920,13 @@ SELECT DISTINCT PAT_ID,
 FROM xdr_Wherry_preg_pl               pl
   --ICD9 CODES JOIN
   LEFT JOIN clarity.edg_current_icd9                cin9  ON pl.dx_id = cin9.dx_id AND cin9.line = 1
-  LEFT JOIN i2b2.lz_dx_px_lookup          icd9   ON cin9.code = icd9.CODE
-                                                AND icd9.code_type = 'DX' 
+  LEFT JOIN XDR_Wherry_preg_DX_LOOKUP          icd9   ON cin9.code = icd9.CODE
+                                                --AND icd9.code_type = 'DX' 
                                                 AND icd9.icd_type = 9
   --ICD10 CODES JOIN
   LEFT JOIN clarity.edg_current_icd10             cin10 ON pl.DX_ID = cin10.dx_id AND cin10.line = 1
-  LEFT JOIN i2b2.lz_dx_px_lookup          icd10   ON cin10.code = icd10.CODE
-                                                AND icd10.code_type = 'DX' 
+  LEFT JOIN XDR_Wherry_preg_DX_LOOKUP          icd10   ON cin10.code = icd10.CODE
+                                                --AND icd10.code_type = 'DX' 
                                                 AND icd10.icd_type = 10
 ;
 
@@ -936,8 +934,8 @@ FROM xdr_Wherry_preg_pl               pl
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'xdr_Wherry_preg_pldx' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	
-	,COUNT(*) AS TOTAL_COUNT 		
+	,COUNT(distinct pat_id) AS PAT_COUNT	        --30855
+	,COUNT(*) AS TOTAL_COUNT 		                --301122
 FROM xdr_Wherry_preg_pldx;
 COMMIT;
 
@@ -947,8 +945,11 @@ COMMIT;
 --------------------------------------------------------------------------------
 DROP TABLE xdr_Wherry_preg_prov PURGE;
 CREATE TABLE xdr_Wherry_preg_prov AS
-SELECT DISTINCT enc.visit_prov_id               AS provider_id,
+SELECT rownum as prov_study_id
+        ,x.*
+FROM (SELECT DISTINCT prov.prov_id               AS provider_id,
                 --Provider Gender(?)
+                --uclaprov.DEID_PROV_ID,
                 prv.provider_type,
                 prv.primary_specialty,
                 CASE WHEN   ser.ACTIVE_STATUS = 'Active'  AND  emp.USER_STATUS_C = 1 THEN 1
@@ -956,12 +957,20 @@ SELECT DISTINCT enc.visit_prov_id               AS provider_id,
                 END active_providers,
                 CASE WHEN   emp.user_id IS NOT NULL THEN 1
                     ELSE NULL
-                END UCLA_provider
-FROM xdr_Wherry_preg_enc                  enc
-LEFT JOIN clarity.v_cube_d_provider       prv   ON enc.visit_prov_id = prv.provider_id
+                END UC_provider
+FROM 
+    (--All provider from encounters + procedures
+    select visit_prov_id as prov_id from xdr_Wherry_preg_enc
+    UNION
+    select PROC_PERF_PROV_ID as prov_id from xdr_Wherry_preg_prc
+    ) prov
+LEFT JOIN clarity.v_cube_d_provider       prv   ON prov.prov_id = prv.provider_id
 --check for active providers
-LEFT JOIN clarity.clarity_ser                     ser ON enc.visit_prov_id = ser.PROV_ID
-LEFT JOIN clarity.CLARITY_EMP                     emp ON ser.PROV_ID = emp.PROV_ID 
+LEFT JOIN clarity.clarity_ser                     ser ON prov.prov_id = ser.PROV_ID
+LEFT JOIN clarity.CLARITY_EMP                     emp ON prov.PROV_ID = emp.PROV_ID 
+--LEFT JOIN I2B2.bip_PROVIDER_LINK                  uclaprov ON prov.PROV_ID = uclaprov.CLARITY_PROV_ID
+) x
+ORDER BY  dbms_random.value
 ;
 
 --Add counts for QA
