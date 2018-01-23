@@ -191,6 +191,7 @@ select distinct PAT_ID
 ,CHILD_BIRTH_DATE
 from XDR_WHERRY_preg_enc_dob;
 
+
 select count(*), count(distinct PAT_ID) AS COUNT_MOM, count(distinct child_pat_id) AS COUNT_CHILD from  XDR_WHERRY_preg_dist;--168481368	53724	109325
 
 
