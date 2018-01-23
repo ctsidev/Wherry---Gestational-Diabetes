@@ -11,7 +11,96 @@ CREATE TABLE XDR_WHERRY_preg_COUNTS
 
 -- *******************************************************************************************************
 -- STEP 1
---   Create an initial Patient table with ALL mother-child records avaialble in Clarity
+--   Create an initial Patient table with ALL mother records based on diagnoses codes
+---------------------------------------------------------------------------------------------------------
+--	The table i2b2.int_dx contains legacy diagnoses codes for the 2006-2013 period.
+--  Each site has dealt with legacy data different and shall implement their own approach
+-- *******************************************************************************************************
+DROP TABLE xdr_wherry_prg_pregall PURGE;
+CREATE TABLE xdr_wherry_prg_pregall AS
+    SELECT DISTINCT mom.pat_id
+            ,9 AS ICD_TYPE
+            ,EDG.code as ICD_CODE
+            ,dx.CONTACT_DATE
+    FROM clarity.patient   mom
+    JOIN clarity.pat_enc_dx         dx  ON mom.pat_id = dx.pat_id
+    JOIN clarity.edg_current_icd9           edg ON dx.dx_id = edg.dx_id
+    WHERE
+        mom.sex_c = 1       --female
+        AND (REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
+        OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')        --ICD-9: V22-V23 (includes all subcategories)
+        )
+        AND dx.CONTACT_DATE BETWEEN '01/01/2006' AND '01/18/2018'
+UNION
+    SELECT DISTINCT mom.pat_id
+                ,10 AS ICD_TYPE
+                ,EDG.code as ICD_CODE
+                ,dx.CONTACT_DATE
+    FROM clarity.patient   mom
+    JOIN clarity.pat_enc_dx         dx  ON mom.pat_id = dx.pat_id
+    JOIN clarity.edg_current_icd10           edg ON dx.dx_id = edg.dx_id
+    WHERE
+        mom.sex_c = 1       --female
+        AND (REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')         --ICD-10: Z34, Z3A, Z37, O categories
+        OR REGEXP_LIKE(edg.code,'^O+')              --ICD-10: Z34, Z3A, Z37, O categories
+        )
+        AND dx.CONTACT_DATE BETWEEN '01/01/2006' AND '01/18/2018'
+UNION
+    SELECT DISTINCT mom.pat_id
+        ,9 AS ICD_TYPE
+        ,EDG.code as ICD_CODE
+        ,enc.CONTACT_DATE
+    FROM clarity.patient   mom
+    JOIN clarity.pat_enc                    enc  ON mom.pat_id = enc.pat_id
+    join clarity.hsp_acct_dx_list           dx on enc.hsp_account_id = dx.hsp_account_id
+    JOIN clarity.edg_current_icd9           edg ON dx.dx_id = edg.dx_id
+    WHERE
+        mom.sex_c = 1       --female
+        AND (REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
+        OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')       --ICD-9: V22-V23 (includes all subcategories)
+        )
+        AND enc.CONTACT_DATE BETWEEN '01/01/2006' AND '01/18/2018'
+UNION
+    SELECT DISTINCT mom.pat_id
+        ,10 AS ICD_TYPE
+        ,EDG.code as ICD_CODE
+        ,enc.CONTACT_DATE
+    FROM clarity.patient   mom
+    JOIN clarity.pat_enc                    enc  ON mom.pat_id = enc.pat_id
+    join clarity.hsp_acct_dx_list           dx on enc.hsp_account_id = dx.hsp_account_id
+    JOIN clarity.edg_current_icd10          edg ON dx.dx_id = edg.dx_id
+    WHERE
+        mom.sex_c = 1       --female
+        AND (REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')       --ICD-10: Z34, Z3A, Z37, O categories
+        OR REGEXP_LIKE(edg.code,'^O+')       --ICD-10: Z34, Z3A, Z37, O categories
+        )
+        AND enc.CONTACT_DATE BETWEEN '01/01/2006' AND '01/18/2018'
+--legacy data
+UNION
+	select PAT_ID
+        ,9 AS ICD_TYPE
+        ,ICD9_CODE
+        ,EFFECTIVE_DATE
+	from i2b2.int_dx
+	WHERE (REGEXP_LIKE(ICD9_CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
+        OR REGEXP_LIKE(ICD9_CODE,'^V2(2|3)+')        --ICD-9: V22-V23 (includes all subcategories)
+        )
+        AND EFFECTIVE_DATE BETWEEN '01/01/2006' AND '01/25/2018'
+;
+
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'xdr_wherry_prg_pregall' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
+	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
+FROM xdr_wherry_prg_pregall;
+COMMIT;
+
+	
+-- *******************************************************************************************************
+-- STEP 2
+--   Create an initial Patient table with ALL mother-child records available in Clarity 
+--	 At UCLA, this if from Care Connect launch date 03/2013 to present time
 -- *******************************************************************************************************
 DROP TABLE xdr_wherry_all_mom_child PURGE;                                                  
 CREATE TABLE xdr_wherry_all_mom_child AS
@@ -35,7 +124,7 @@ SELECT DISTINCT nb.pat_id                                               AS nb_pa
   LEFT JOIN clarity.zc_sex      xsx ON nbp.sex_c = xsx.rcpt_mem_sex_c
   LEFT JOIN clarity.patient     mp  ON mom.pat_id = mp.pat_id
   WHERE 
-        trunc(nbp.birth_date) BETWEEN '01/01/2006' AND SYSDATE;
+        trunc(nbp.birth_date) BETWEEN '01/01/2006' AND '01/25/2018';
   
  select count(*), count(distinct NB_pat_id), count(distinct mom_pat_id) from xdr_wherry_all_mom_child;     --17087	17087	14837
 --ALTER TABLE xdr_wherry_prg_pat ADD CONSTRAINT xdr_wherry_prg_pat_pk PRIMARY KEY (pat_id);
@@ -47,84 +136,7 @@ SELECT 'xdr_wherry_all_mom_child' AS TABLE_NAME
 	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
 FROM xdr_wherry_all_mom_child;
 COMMIT;
--- *******************************************************************************************************
--- STEP 
---   Create the cohort table based on the criteria (DX)
--- *******************************************************************************************************
-DROP TABLE xdr_wherry_prg_cohdx PURGE;
-CREATE TABLE xdr_wherry_prg_cohdx AS
-    SELECT DISTINCT mom.*
-            ,9 AS ICD_TYPE
-            ,EDG.code as ICD_CODE
-    FROM xdr_wherry_all_mom_child   mom
-    JOIN clarity.pat_enc_dx         dx  ON mom.mom_csn = dx.pat_enc_csn_id
-    JOIN clarity.edg_current_icd9           edg ON dx.dx_id = edg.dx_id
-    WHERE
-        REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
-        OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')        --ICD-9: V22-V23 (includes all subcategories)
-UNION
-    SELECT DISTINCT mom.*
-                ,10 AS ICD_TYPE
-                ,EDG.code as ICD_CODE
-    FROM xdr_wherry_all_mom_child   mom
-    JOIN clarity.pat_enc_dx         dx  ON mom.mom_csn = dx.pat_enc_csn_id
-    JOIN clarity.edg_current_icd10           edg ON dx.dx_id = edg.dx_id
-    WHERE
-        REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')         --ICD-10: Z34, Z3A, Z37, O categories
-        OR REGEXP_LIKE(edg.code,'^O+')              --ICD-10: Z34, Z3A, Z37, O categories
-UNION
-    SELECT DISTINCT mom.*
-            ,9 AS ICD_TYPE
-            ,EDG.code as ICD_CODE
-    FROM xdr_wherry_all_mom_child   mom
-    JOIN clarity.hsp_admit_diag         dx  ON mom.mom_csn = dx.pat_enc_csn_id
-    JOIN clarity.edg_current_icd9           edg ON dx.dx_id = edg.dx_id
-    WHERE
-        REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')      --ICD-9: 630-679 (includes all subcategories)
-            OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')       --ICD-9: V22-V23 (includes all subcategories)
-UNION
-    SELECT DISTINCT mom.*
-        ,10 AS ICD_TYPE
-        ,EDG.code as ICD_CODE
-        FROM xdr_wherry_all_mom_child   mom
-        JOIN clarity.hsp_admit_diag         dx  ON mom.mom_csn = dx.pat_enc_csn_id
-        JOIN clarity.edg_current_icd10           edg ON dx.dx_id = edg.dx_id
-        WHERE
-            REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')       --ICD-10: Z34, Z3A, Z37, O categories
-            OR REGEXP_LIKE(edg.code,'^O+')       --ICD-10: Z34, Z3A, Z37, O categories
-UNION
-    SELECT DISTINCT mom.*
-        ,9 AS ICD_TYPE
-        ,EDG.code as ICD_CODE
-    FROM xdr_wherry_all_mom_child   mom
-    JOIN clarity.pat_enc            enc  ON mom.mom_csn = enc.pat_enc_csn_id
-    join clarity.hsp_acct_dx_list           dx on enc.hsp_account_id = dx.hsp_account_id
-    JOIN clarity.edg_current_icd9           edg ON dx.dx_id = edg.dx_id
-    WHERE
-        REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
-        OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')       --ICD-9: V22-V23 (includes all subcategories)
-UNION
-    SELECT DISTINCT mom.*
-        ,10 AS ICD_TYPE
-        ,EDG.code as ICD_CODE
-    FROM xdr_wherry_all_mom_child   mom
-    JOIN clarity.pat_enc            enc  ON mom.mom_csn = enc.pat_enc_csn_id
-    join clarity.hsp_acct_dx_list           dx on enc.hsp_account_id = dx.hsp_account_id
-    JOIN clarity.edg_current_icd10          edg ON dx.dx_id = edg.dx_id
-    WHERE
-        REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')       --ICD-10: Z34, Z3A, Z37, O categories
-        OR REGEXP_LIKE(edg.code,'^O+')       --ICD-10: Z34, Z3A, Z37, O categories
-;
---ALTER TABLE xdr_wherry_prg_cohdx ADD CONSTRAINT xdr_wherry_prg_cohdx_pk PRIMARY KEY (pat_id);
-select count(*), COUNT(distinct nb_pat_id), count(distinct mom_pat_id) from xdr_wherry_prg_cohdx;  --160534	17055	14819
---missing 32 32 30
 
---MISSING PATS
-select count(*), COUNT(distinct hs.nb_pat_id), count(distinct hs.mom_pat_id) 
-from xdr_wherry_all_mom_child hs
-left join xdr_wherry_prg_cohdx  pr on hs.nb_pat_id = pr.nb_pat_id and hs.mom_pat_id = pr.mom_pat_id
-where 
-pr.mom_pat_id is null    ;--32	32	30
 
 
 --CHECK DX CODES
@@ -138,8 +150,158 @@ join i2b2.lz_dx_px_lookup lk on dx.icd_code = lk.code
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'xdr_wherry_prg_cohdx' AS TABLE_NAME
+SELECT 'xdr_wherry_all_mom_child' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
 	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
-FROM xdr_wherry_prg_cohdx;
+FROM xdr_wherry_all_mom_child;
+COMMIT;
+
+
+-- *******************************************************************************************************
+-- STEP 3
+--   Create an initial Patient table with all patients born in the period of prior to CC launch date 01/01/2006 - 03/01/2013
+-- *******************************************************************************************************
+--maybe reduce this to the '01/01/2006' AND '03/02/2013' period since 2013 to present is addressed by the mom-child link table
+DROP TABLE XDR_WHERRY_preg_childall PURGE;
+CREATE TABLE XDR_WHERRY_preg_childall AS
+SELECT pat.*
+FROM clarity.patient pat
+WHERE birth_date BETWEEN '01/01/2006' AND '01/25/2018';  --'01/01/2006' AND '03/02/2013'
+
+--QA counts (to be removed?)
+select count(*) , count(distinct pat_id)  from XDR_WHERRY_PREG_CHILDALL;        --168490	168490
+select extract(year from birth_date) as y, count(distinct pat_id)  
+from XDR_WHERRY_PREG_CHILDALL
+group by extract(year from birth_date)
+order by y;        --168490	168490
+
+
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_WHERRY_preg_childall' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
+	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
+FROM XDR_WHERRY_preg_childall;
+COMMIT;
+
+
+-- *******************************************************************************************************
+-- STEP 4
+--   Pull all encounter for Mothers
+-- *******************************************************************************************************
+DROP TABLE XDR_WHERRY_preg_ENC PURGE;
+CREATE TABLE XDR_WHERRY_preg_ENC AS
+SELECT e.pat_id, 
+            e.pat_enc_csn_id, 
+            e.hsp_account_id, 
+            e.inpatient_data_id, 
+            e.ip_episode_id,
+            e.effective_date_dt,
+            e.hosp_admsn_time, 
+            e.hosp_dischrg_time,
+            nvl(e.visit_fc, -999) prim_fc, 
+            nvl(fc.fin_class_title, 'Unknown') financial_class,
+            nvl(e.enc_type_c,'-999') enc_type_c, 
+            nvl(enctype.name, 'Unknown') encounter_type,
+            e.department_id,
+            e.visit_prov_id,
+            e.appt_status_c, 
+            e.pcp_prov_id,
+            --hsp.disch_disp_c, 
+            --dd.name disposition, 
+            --hsp.ed_disposition_c, 
+            --edd.name ed_disposition,
+            dep.department_name,
+            dep.specialty
+            --loc.loc_name       
+		FROM clarity.pat_enc 				e
+        JOIN (SELECT DISTINCT PAT_ID 
+			FROM xdr_wherry_prg_pregall) 	pat 	ON e.pat_id = pat.pat_id		
+        LEFT JOIN clarity.clarity_fc 		fc 		ON e.visit_fc = fc.financial_class
+        LEFT JOIN clarity.ZC_DISP_ENC_TYPE 	enctype ON e.enc_type_c = enctype.disp_enc_type_c
+        --LEFT JOIN clarity.pat_enc_hsp       hsp 	ON e.PAT_ENC_CSN_ID = hsp.PAT_ENC_CSN_ID
+        --LEFT JOIN clarity.zc_disch_disp     dd  	ON hsp.disch_disp_c = dd.disch_disp_c
+        --LEFT JOIN clarity.zc_ed_disposition edd 	ON hsp.ed_disposition_c = edd.ed_disposition_c
+        LEFT JOIN clarity.clarity_dep       dep 	ON e.department_id = dep.department_id
+        --LEFT JOIN XDR_WHERRY_preg_childall  cld ON 
+        --left join clarity.clarity_loc               loc ON dep.rev_loc_id = loc.loc_id
+        WHERE 
+			--discard errors and dummy/test encounters
+			e.enc_type_c not in (2532, 2534, 40, 2514, 2505, 2506, 2512, 2507)
+			--the potential mother had a hospital encounter
+			--AND enctype.name = 'Hospital Encounter'
+			--Encounter took place on the same date where one of the children was born
+--			AND e.effective_date_dt IN (SELECT DISTINCT birth_date
+--										FROM XDR_WHERRY_preg_childall)
+;
+select count(*) , count(distinct pat_id)  from XDR_WHERRY_preg_ENC_pregall;  --1064076	69895
+--There are 44,921 potential mothers with a hospital encounter in this period.
+select count(*) , count(distinct enc.pat_id)  
+from XDR_WHERRY_preg_ENC_pregall enc
+join (select distinct pat_id  from XDR_WHERRY_PRG_PREGALL where CONTACT_DATE BETWEEN '01/01/2006' AND '03/01/2013') dx on enc.pat_id = dx.pat_id
+where enc.effective_date_dt BETWEEN '01/01/2006' AND '03/01/2013'; --767055			44921
+
+
+--CREATE INDEXES
+CREATE INDEX XDR_WHERRY_preg_ENC_preg_DTIX ON XDR_WHERRY_preg_ENC(hosp_admsn_time);
+CREATE INDEX XDR_WHERRY_preg_ENC_preg_DTIX ON XDR_WHERRY_preg_ENC(hosp_dischrg_time);
+CREATE INDEX XDR_WHERRY_preg_childall_BDIX ON XDR_WHERRY_preg_ENC(BIRTH_DATE);
+
+
+
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_WHERRY_preg_enc' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
+	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
+FROM XDR_WHERRY_preg_enc;
+COMMIT;
+
+
+-- *******************************************************************************************************
+-- STEP 5
+--   		Create hospital encounters table for the '01/01/2006' - '03/01/2013' population
+-- *******************************************************************************************************
+DROP TABLE XDR_WHERRY_preg_HSP PURGE;
+CREATE TABLE XDR_WHERRY_preg_HSP AS
+SELECT * 
+FROM XDR_WHERRY_preg_ENC
+WHERE encounter_type = 'Hospital Encounter'
+	AND 
+		(hosp_admsn_time BETWEEN '01/01/2006' AND '03/01/2013'
+		OR
+		hosp_dischrg_time BETWEEN '01/01/2006' AND '03/01/2013')
+;
+
+
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_WHERRY_preg_hsp' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
+	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
+FROM XDR_WHERRY_preg_hsp;
+COMMIT;
+
+
+-- *******************************************************************************************************
+-- STEP 6
+--   		Create table matching hospital encounter with children DOB for the '01/01/2006' - '03/01/2013' population
+-- *******************************************************************************************************
+DROP TABLE XDR_WHERRY_preg_enc_dob PURGE;
+CREATE TABLE XDR_WHERRY_preg_enc_dob AS
+SELECT enc.PAT_ID		as mom_pat_id
+		,ENC.effective_date_dt
+		,cld.pat_id as child_pat_id
+		,cld.BIRTH_DATE as child_birth_date
+FROM XDR_WHERRY_PREG_CHILDALL	cld			
+JOIN  XDR_WHERRY_preg_HSP		enc ON cld.birth_date between enc.hosp_admsn_time and enc.hosp_dischrg_time;
+
+
+
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_WHERRY_preg_enc_dob' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
+	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
+FROM XDR_WHERRY_preg_enc_dob;
 COMMIT;
