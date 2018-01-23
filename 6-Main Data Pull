@@ -788,43 +788,43 @@ COMMIT;
 --------------------------------------------------------------------------------
 DROP TABLE xdr_Wherry_preg_pl purge;
 CREATE TABLE xdr_Wherry_preg_pl AS
-SELECT DISTINCT enc.pat_id
-               ,enc.pat_enc_csn_id
-               ,enc.effective_date_dt          AS encounter_date
-               ,pl.problem_list_id
-               ,pl.hx_problem_id               AS dx_id
-               ,pl.hx_description              AS prob_desc 
-               ,pl.hx_date_noted               AS noted_date
-               ,pl.hx_date_of_entry            AS update_date
-               ,pl.hx_date_resolved            AS resolved_date
-               ,zps.name                       AS problem_status
-               ,pl.hx_comment                  AS problem_cmt     
-               ,zhp.name                       AS priority
-               ,pl.hx_is_hosp_yn               AS hospital_problem
-               ,pl.hx_principal_yn             AS principal_yn
-               ,pl.hx_chronic_yn               AS chronic_yn             
-               --,pl.PROBLEM_TYPE_C              --1-MEDICAL   2-NURSING   3-Hospitalization       (in progress)           
-               
-               --ICD9 CODES
-               --,'9'                            AS icd_type
-               --,cin9.code                      AS icd_code
-               --,icd9.ICD_DESC                  AS icd_desc
-  
-               --ICD10 CODES
-               --,'10'                           AS icd_type
-               --,cin10.code                     AS ICD_code
-               --,icd10.ICD_DESC                 AS ICD_DESC
-               --,DSC10.DESCRIPTION              AS ICD10_Diagnosis_desc               
-
-               ,ser.prov_id                           
-               ,ser.prov_type          
-               ,prv.primary_specialty         
-  FROM xdr_Wherry_preg_enc                      enc
-  JOIN clarity.problem_list_hx            pl    ON enc.pat_enc_csn_id = pl.hx_problem_ept_csn
-  LEFT JOIN clarity.clarity_ser           ser   ON pl.hx_entry_user_id = ser.user_id
-  LEFT JOIN clarity.v_cube_d_provider     prv   ON ser.prov_id = prv.provider_id
-  LEFT JOIN clarity.zc_problem_status     zps   ON pl.hx_status_c = zps.problem_status_c
-  LEFT JOIN clarity.zc_hx_priority        zhp   ON pl.hx_priority_c = zhp.hx_priority_c
+--SELECT DISTINCT enc.pat_id
+--               ,enc.pat_enc_csn_id
+--               ,enc.effective_date_dt          AS encounter_date
+--               ,pl.problem_list_id
+--               ,pl.hx_problem_id               AS dx_id
+--               ,pl.hx_description              AS prob_desc 
+--               ,pl.hx_date_noted               AS noted_date
+--               ,pl.hx_date_of_entry            AS update_date
+--               ,pl.hx_date_resolved            AS resolved_date
+--               ,zps.name                       AS problem_status
+--               --,pl.hx_comment                  AS problem_cmt     
+--               ,zhp.name                       AS priority
+--               ,pl.hx_is_hosp_yn               AS hospital_problem
+--               ,pl.hx_principal_yn             AS principal_yn
+--               ,pl.hx_chronic_yn               AS chronic_yn             
+--               --,pl.PROBLEM_TYPE_C              --1-MEDICAL   2-NURSING   3-Hospitalization       (in progress)           
+--               
+--               --ICD9 CODES
+--               --,'9'                            AS icd_type
+--               --,cin9.code                      AS icd_code
+--               --,icd9.ICD_DESC                  AS icd_desc
+--  
+--               --ICD10 CODES
+--               --,'10'                           AS icd_type
+--               --,cin10.code                     AS ICD_code
+--               --,icd10.ICD_DESC                 AS ICD_DESC
+--               --,DSC10.DESCRIPTION              AS ICD10_Diagnosis_desc               
+--
+--               ,ser.prov_id                           
+--               ,ser.prov_type          
+--               ,prv.primary_specialty         
+--  FROM xdr_Wherry_preg_enc                      enc
+--  JOIN clarity.problem_list_hx            pl    ON enc.pat_enc_csn_id = pl.hx_problem_ept_csn
+--  LEFT JOIN clarity.clarity_ser           ser   ON pl.hx_entry_user_id = ser.user_id
+--  LEFT JOIN clarity.v_cube_d_provider     prv   ON ser.prov_id = prv.provider_id
+--  LEFT JOIN clarity.zc_problem_status     zps   ON pl.hx_status_c = zps.problem_status_c
+--  LEFT JOIN clarity.zc_hx_priority        zhp   ON pl.hx_priority_c = zhp.hx_priority_c
   
   --ICD9 CODES
   --LEFT JOIN edg_current_icd9              cin9  ON pl.DX_ID = cin9.dx_id AND cin9.line = 1
@@ -837,7 +837,7 @@ SELECT DISTINCT enc.pat_id
   --LEFT JOIN i2b2.lz_dx_px_lookup          icd10 ON cin10.code = icd10.code
   --                                              AND icd10.code_type = 'DX' 
   --                                              AND icd10.icd_type = 10
-UNION
+--UNION
 SELECT DISTINCT enc.pat_id
                ,enc.pat_enc_csn_id
                ,enc.effective_date_dt as encounter_date
@@ -848,7 +848,7 @@ SELECT DISTINCT enc.pat_id
                ,pl.date_of_entry              AS update_date
                ,pl.resolved_date              AS resolved_date
                ,zps.name                      AS problem_status        
-               ,pl.problem_cmt                AS problem_cmt     
+               --,pl.problem_cmt                AS problem_cmt     
                ,zhp.name                      AS priority
                ,pl.hospital_pl_yn             AS hospital_problem
                ,PL.PRINCIPAL_PL_YN            AS principal_yn
