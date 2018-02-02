@@ -98,8 +98,8 @@ COMMIT;
 	
 -- *******************************************************************************************************
 -- STEP 2
---   Create an initial Patient table with ALL mother-child records available in Clarity 
---	 At UCLA, this if from Care Connect launch date 03/2013 to present time
+--   Create an initial table with ALL mother-child records available in Clarity 
+--	 At UCLA, this data is available from the date that Care Connect launched on 03/2013 to the present time
 -- *******************************************************************************************************
 --caveat, sometimes children get assigned a pregnancy DX code. The PI will be discarding them on their end (2/1/18)
 DROP TABLE xdr_wherry_all_mom_child PURGE;                                                  
@@ -733,6 +733,9 @@ delete from XDR_WHERRY_preg_matching_final
 where CHILD_PAT_ID in (select distinct CHILD_PAT_ID from XDR_WHERRY_preg_matching_ex );
 
 commit;
+
+
+SELECT COUNT(*) COUNT_TOTAL, count(distinct mom_pat_id) AS COUNT_MOM, count(distinct child_pat_id) AS COUNT_CHILD  FROM XDR_WHERRY_preg_matching_FINAL;      --20720	17037	20210     27524	17061	20234 
 /*************************************************************************************
 --insert final 2006-2013 mom-child records into xdr_wherry_all_mom_child
 
