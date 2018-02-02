@@ -669,8 +669,7 @@ SELECT DISTINCT coh.pat_id
                        ,meas.recorded_time
                        ,meas.meas_value       AS measure_value
           FROM XDR_Wherry_preg_PAT           coh 
-          --Needs encounter table
-          --JOIN XDR_Wherry_preg_IP_ENC        enc   ON coh.pat_enc_csn_id = enc.pat_enc_csn_id
+          JOIN XDR_WHERRY_preg_ENC        enc   ON coh.pat_enc_csn_id = enc.pat_enc_csn_id
           JOIN clarity.ip_flwsht_rec      rec   ON enc.inpatient_data_id = rec.inpatient_data_id
           JOIN clarity.ip_flwsht_meas     meas  ON rec.fsd_id = meas.fsd_id
           JOIN clarity.ip_flo_gp_data     gpd   ON meas.flo_meas_id = gpd.flo_meas_id
