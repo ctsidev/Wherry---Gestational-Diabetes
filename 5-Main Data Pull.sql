@@ -644,6 +644,18 @@ group by ICD_CODE_SET;
 --------------------------------------------------------------------------------
 -- STEP 6.6: Create Flowsheet table
 --------------------------------------------------------------------------------
+--		Codes for common flowsheets might differ among sites. Please confirm for: 
+/*
+				     '11'         --Height
+                                    ,'14'         --Weight
+                                    ,'5'          --Blood Pressure  
+                                    ,'8'          --Pulse
+                                    ,'6'          --Temperature
+                                    ,'9'          --Respiratory Rate 
+                                    ,'301070'     --BMI
+                                    ,'10'         --Pulse Oximetry (SpO2)
+*/
+--------------------------------------------------------------------------------				    
 DROP TABLE xdr_Wherry_preg_flo PURGE;
 CREATE TABLE xdr_Wherry_preg_flo AS 
 SELECT DISTINCT coh.pat_id
