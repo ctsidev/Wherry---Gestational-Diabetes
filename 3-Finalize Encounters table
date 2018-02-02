@@ -5,7 +5,7 @@
 
 - --------------------------------------------------------------------------------
 -- STEP 3.1
---		Create Base Encounters table
+--		Insert children Encounters
 --------------------------------------------------------------------------------
 --      Exclude the following encounter types enc_type_c not in (2532, 2534, 40, 2514, 2505, 2506, 2512, 2507)
 --      In your environment, these codes might differ. I have listed the details below for your convinience.
@@ -18,8 +18,9 @@
 --          2534	Scanned Document No Visit
 --            40	Wait List 
 --------------------------------------------------------------------------------
-DROP TABLE XDR_WHERRY_preg_ENC PURGE;
-CREATE TABLE XDR_WHERRY_preg_ENC AS
+--DROP TABLE XDR_WHERRY_preg_ENC PURGE;
+--CREATE TABLE XDR_WHERRY_preg_ENC AS
+INSERT INTO XDR_WHERRY_preg_ENC
 SELECT e.pat_id, 
             e.pat_enc_csn_id, 
             e.hsp_account_id, 
@@ -44,7 +45,7 @@ SELECT e.pat_id,
             dep.specialty,
             loc.loc_name
         FROM clarity.pat_enc e
-        JOIN XDR_WHERRY_preg_pat pat on e.pat_id = pat.pat_id
+        JOIN XDR_WHERRY_preg_pat pat on e.pat_id = pat.pat_id AND PAT.MOM_CHILD_YN ='C'			--mother encounters were pulled in step 1
         LEFT JOIN clarity.clarity_fc fc ON e.visit_fc = fc.financial_class
         JOIN clarity.ZC_DISP_ENC_TYPE enctype ON e.enc_type_c = enctype.disp_enc_type_c
         
@@ -58,14 +59,14 @@ SELECT e.pat_id,
         AND e.effective_date_dt >= '01/01/2006' 
 ;        --1000 seconds
 
---gather comse coutns for QA       
+--gather counts for QA       
 SELECT COUNT(*) AS TOT_COUNT, COUNT(DISTINCT PAT_ID) AS PAT_COUNT FROM XDR_WHERRY_preg_ENC;         --2,067,185	    31,715 (1/18/18)        
 SELECT EXTRACT(YEAR FROM effective_date_dt) AS YEAR, COUNT(*) AS TOT_COUNT, COUNT(DISTINCT PAT_ID) AS PAT_COUNT FROM XDR_WHERRY_preg_ENC GROUP BY EXTRACT(YEAR FROM effective_date_dt) ORDER BY YEAR;
 
 --take a look at output
 select * from XDR_WHERRY_preg_ENC;
 
---look at the details of codes being excluded from encoutners pull        
+--look at the details of codes being excluded from encounters pull        
 select 
 * from 
 clarity.ZC_DISP_ENC_TYPE enctype
@@ -82,14 +83,15 @@ COMMIT;
 
 
 --------------------------------------------------------------------------------
---	STEP 3.2: Update FIRST_ENC_DATE in the patient table
+--	STEP 3.2: Update FIRST_ENC_DATE in the patient table (only for mothers)
 --------------------------------------------------------------------------------	  
 alter table XDR_WHERRY_preg_pat add  "FIRST_ENC_DATE" DATE;
 MERGE INTO XDR_WHERRY_preg_pat pat
 using
   (select  pat_id
         ,MIN(effective_date_dt) AS FIRST_ENC_DATE
-    from XDR_WHERRY_preg_ENC
+    from XDR_WHERRY_preg_ENC		enc
+	JOIN XDR_WHERRY_PAT				pat on enc.pat_id = pat.pat_id and pat.MOM_CHILD_YN = 'M'
     GROUP BY pat_id) r
   on (pat.pat_id = r.pat_id)
   when matched then
