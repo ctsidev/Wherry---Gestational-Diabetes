@@ -378,9 +378,11 @@ select matching_vector,count(*) from (
 SELECT distinct x.ADDRESS_MATCH ||  x.PHONE_MATCH ||  x.EMAIL_MATCH || x.PROXY_MATCH as matching_vector
 ,x.MOM_PAT_ID
 ,x.CHILD_PAT_ID
-FROM XDR_WHERRY_preg_matching x )
+FROM XDR_WHERRY_preg_matching_final x )
 group by matching_vector
 order by matching_vector;
+
+
 
 
 select distinct x.MOM_PAT_ID
