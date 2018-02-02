@@ -55,7 +55,7 @@ DROP TABLE XDR_WHERRY_preg_pat PURGE;
 INSERT INTO XDR_WHERRY_preg_pat
 SELECT rownum as study_id,
 pat.* 
-,'M' MOM_CHILD_YN
+--,'M' MOM_CHILD_YN
 from
 (SELECT DISTINCT coh.pat_id,
 null as mom_pat_id,
@@ -75,11 +75,19 @@ null as BENEFIT_PLAN_NAME,
 null as FINANCIAL_CLASS
 FROM --(SELECT * 
       --FROM 
-          (SELECT DISTINCT MOM_PAT_ID as pat_id
+          (-- ALL WOMEN WITH A PREGANNCY RELATED DX
+		  SELECT DISTINCT PAT_ID as pat_id
+					,'M' MOM_CHILD_YN
+            FROM xdr_wherry_prg_pregall
+			union
+			--ALL CHILDREN LINKED TO A WOMAN WITH A PREGNANCY RELATED DX
+			SELECT DISTINCT NB_PAT_ID as CHILD_pat_id
+					,'C' MOM_CHILD_YN
                 --,MOM_CSN
                 --,HOSP_ADMSN_TIME
                 --,MIN(HOSP_ADMSN_TIME) OVER (PARTITION BY pat_id) AS FIRST_HOSP_DATE
-            FROM xdr_wherry_prg_cohdx
+            FROM xdr_wherry_all_mom_child
+			
 --            ) x
 --        WHERE 
 --            x.HOSP_ADMSN_TIME = FIRST_HOSP_DATE
@@ -249,7 +257,7 @@ select * from XDR_WHERRY_preg_pat;
 --    "FINANCIAL_CLASS" VARCHAR2(254 BYTE)
 --  );  
 
-
+/*
 
 INSERT INTO XDR_WHERRY_preg_pat
 SELECT rownum as study_id,
@@ -431,5 +439,5 @@ using
   when matched then
       update set MAPPED_RACE_NAME = r.MAPPED_RACE_NAME;
 COMMIT;      
-
+*/
 select * from XDR_WHERRY_preg_pat;   
