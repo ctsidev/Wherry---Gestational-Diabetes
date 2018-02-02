@@ -342,8 +342,9 @@ WHERE
 		OR (enc.pat_id = prx.proxy_pat_id)
 		);
 
-SELECT count(*) FROM XDR_WHERRY_preg_matching ;     --64,643      
+SELECT count(*) FROM XDR_WHERRY_preg_matching ;     --27937
 SELECT COUNT(*) COUNT_TOTAL, count(distinct mom_pat_id) AS COUNT_MOM, count(distinct child_pat_id) AS COUNT_CHILD  FROM XDR_WHERRY_preg_matching;      --27937	17404	20573
+
 
 
 
@@ -352,7 +353,23 @@ SELECT distinct x.ADDRESS_MATCH ||  x.PHONE_MATCH ||  x.EMAIL_MATCH || x.PROXY_M
 ,x.* 
 FROM XDR_WHERRY_preg_matching x )
 group by matching_vector;
-
+/*
+0100	6940
+0001	1069
+1010	75
+0110	130
+0011	76
+1100	11260
+1000	3328
+1001	787
+1101	1912
+0101	1792
+1110	199
+0111	97
+0010	87
+1111	117
+1011	68
+*/
 
         There are _____ potential mothers with a hospital encounter in this period.
 		
@@ -376,12 +393,12 @@ select distinct x.MOM_PAT_ID
 ,x.PROXY_MATCH
 ,x.ADDRESS_MATCH ||  x.PHONE_MATCH ||  x.EMAIL_MATCH || x.PROXY_MATCH as matching_vector
 from XDR_WHERRY_preg_matching x
-order by MOM_PAT_ID
+order by MOM_PAT_ID;
 
 
 select distinct CHILD_PAT_ID from XDR_WHERRY_preg_matching 
 
-
+--there are 57 kids with 2 mothers
 select x.*
 from (
 select CHILD_PAT_ID,count(distinct MOM_PAT_ID) mom_count from XDR_WHERRY_preg_matching 
@@ -389,6 +406,7 @@ group by CHILD_PAT_ID
 ) x
 where x.mom_count > 1
 ;
+
 
 select distinct x.*
 ,orig.ADDRESS_MATCH ||  orig.PHONE_MATCH ||  orig.EMAIL_MATCH || orig.PROXY_MATCH as matching_vector
