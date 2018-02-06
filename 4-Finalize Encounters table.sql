@@ -1,6 +1,6 @@
 -- *******************************************************************************************************
 -- STEP 3
---		Create encounter table
+--		Finalize encounter table
 -- *******************************************************************************************************
 
 - --------------------------------------------------------------------------------
@@ -45,7 +45,7 @@ SELECT e.pat_id,
             dep.specialty,
             loc.loc_name
         FROM clarity.pat_enc e
-        JOIN XDR_WHERRY_preg_pat pat on e.pat_id = pat.pat_id AND PAT.MOM_CHILD_YN ='C'			--mother encounters were pulled in step 1
+        JOIN XDR_WHERRY_preg_pat pat on e.pat_id = pat.pat_id AND PAT.MOM_CHILD_YN ='C'			--mother encounters were pulled on step 1
         LEFT JOIN clarity.clarity_fc fc ON e.visit_fc = fc.financial_class
         JOIN clarity.ZC_DISP_ENC_TYPE enctype ON e.enc_type_c = enctype.disp_enc_type_c
         
@@ -83,17 +83,20 @@ COMMIT;
 
 
 --------------------------------------------------------------------------------
---	STEP 3.2: Update FIRST_ENC_DATE in the patient table (only for mothers)
+--	STEP 3.2: Update FIRST_ENC_DATE and LAST_ENC_DATE in the patient table (only for mothers)
 --------------------------------------------------------------------------------	  
 alter table XDR_WHERRY_preg_pat add  "FIRST_ENC_DATE" DATE;
+alter table XDR_WHERRY_preg_pat add  "LAST_ENC_DATE" DATE;
 MERGE INTO XDR_WHERRY_preg_pat pat
 using
   (select  pat_id
         ,MIN(effective_date_dt) AS FIRST_ENC_DATE
+		,MAX(effective_date_dt) AS LAST_ENC_DATE
     from XDR_WHERRY_preg_ENC		enc
 	JOIN XDR_WHERRY_PAT				pat on enc.pat_id = pat.pat_id and pat.MOM_CHILD_YN = 'M'
     GROUP BY pat_id) r
   on (pat.pat_id = r.pat_id)
   when matched then
-      update set FIRST_ENC_DATE = r.FIRST_ENC_DATE;
+      update set FIRST_ENC_DATE = r.FIRST_ENC_DATE,
+				 LAST_ENC_DATE  = r.LAST_ENC_DATE;
 COMMIT;     

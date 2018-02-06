@@ -39,20 +39,10 @@ SELECT DISTINCT nb.pat_id                                               AS nb_pa
   LEFT JOIN clarity.zc_sex      xsx ON nbp.sex_c = xsx.rcpt_mem_sex_c
   LEFT JOIN clarity.patient     mp  ON mom.pat_id = mp.pat_id
   WHERE 
-        trunc(nbp.birth_date) BETWEEN '01/01/2006' AND '01/25/2018';
+        trunc(nbp.birth_date) BETWEEN '01/01/2006' AND '02/05/2018';
   
  select count(*), count(distinct NB_pat_id), count(distinct mom_pat_id) from xdr_wherry_all_mom_child;     --17087	17087	14837
 --ALTER TABLE xdr_wherry_prg_pat ADD CONSTRAINT xdr_wherry_prg_pat_pk PRIMARY KEY (pat_id);
-
---Add counts for QA
-INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'xdr_wherry_all_mom_child' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
-FROM xdr_wherry_all_mom_child;
-COMMIT;
-
-
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
@@ -70,7 +60,17 @@ COMMIT;
 --maybe reduce this to the '01/01/2006' AND '03/02/2013' period since 2013 to present is addressed by the mom-child link table
 DROP TABLE XDR_WHERRY_preg_childall PURGE;
 CREATE TABLE XDR_WHERRY_preg_childall AS
-SELECT pat.*
+SELECT DISTINCT pat.pat_id
+			,pat.pat_name
+			,pat.PAT_ID
+			,pat.PAT_NAME
+			,pat.ADD_LINE_1
+			,pat.CITY
+			,pat.ZIP
+			,pat.HOME_PHONE
+			,pat.EMAIL_ADDRESS
+			,pat.BIRTH_DATE
+			,pat.HOME_PHONE
 FROM clarity.patient pat
 WHERE birth_date BETWEEN   '01/01/2006' AND '03/01/2013';
 
@@ -181,7 +181,7 @@ SELECT DISTINCT enc.child_pat_id
 ,pat.home_phone
 ,pat.email_address
 FROM XDR_WHERRY_preg_enc_dob		enc
-LEFT JOIN clarity.patient			pat on enc.child_pat_id = pat.pat_id;
+LEFT JOIN XDR_WHERRY_preg_childall			pat on enc.child_pat_id = pat.pat_id;
 
 create index XDR_WHERRY_cld_patidix on XDR_WHERRY_child_matching(child_pat_id);
 create index XDR_WHERRY_cld_addix on XDR_WHERRY_child_matching(add_line_1);
@@ -447,7 +447,6 @@ SELECT DISTINCT enc.pat_id as mom_pat_id
 				,enc.hosp_dischrg_time
 				,enc.CHILD_BIRTH_DATE
 				
-				
 				,CASE WHEN (	--SOUNDEX ADDRESS MATCH
 							SOUNDEX(mom.add_line_1) = SOUNDEX(cld.add_line_1)
 							AND mom.ADDRESS_YN = 'y' 
@@ -469,7 +468,6 @@ SELECT DISTINCT enc.pat_id as mom_pat_id
                             AND cld.email_address is not null
                             ) THEN 1 ELSE 0 END EMAIL_MATCH
 				,CASE WHEN enc.pat_id = prx.proxy_pat_id THEN 1 ELSE 0 END PROXY_MATCH
-
 FROM XDR_WHERRY_preg_dist			    enc
 LEFT JOIN XDR_WHERRY_mom_matching		mom on enc.pat_id = mom.mom_pat_id
 LEFT JOIN XDR_WHERRY_child_matching		cld on enc.child_pat_id = cld.child_pat_id

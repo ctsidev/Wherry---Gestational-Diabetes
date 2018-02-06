@@ -50,66 +50,59 @@ DROP TABLE XDR_WHERRY_preg_pat PURGE;
 
 
 
-
-
 INSERT INTO XDR_WHERRY_preg_pat
 SELECT rownum as study_id,
-pat.* 
+	pat.* 
 --,'M' MOM_CHILD_YN
 from
-(SELECT DISTINCT coh.pat_id,
-null as mom_pat_id,
-null as FIRST_ENC_DATE,
---coh.PAT_ENC_CSN_ID,
---p.pat_mrn_id,
-p.birth_date,
---p.death_date,
-ps.name patient_status,
-coalesce(p.ethnic_group_c, -999) ethnic_group_c, 
-coalesce(eg.name, 'Unknown') ethnic_group,
-coalesce(s.name, 'Unknown') sex,
-null as mapped_race_name,
-p.restricted_yn,
-null as mapped_race_c,
-null as BENEFIT_PLAN_NAME,
-null as FINANCIAL_CLASS
-FROM --(SELECT * 
-      --FROM 
-          (-- ALL WOMEN WITH A PREGANNCY RELATED DX
-		  SELECT DISTINCT PAT_ID as pat_id
-					,'M' MOM_CHILD_YN
-            FROM xdr_wherry_prg_pregall
-			union
-			--ALL CHILDREN LINKED TO A WOMAN WITH A PREGNANCY RELATED DX
-			SELECT DISTINCT NB_PAT_ID as CHILD_pat_id
-					,'C' MOM_CHILD_YN
-                --,MOM_CSN
-                --,HOSP_ADMSN_TIME
-                --,MIN(HOSP_ADMSN_TIME) OVER (PARTITION BY pat_id) AS FIRST_HOSP_DATE
-            FROM xdr_wherry_all_mom_child
-			
---            ) x
---        WHERE 
---            x.HOSP_ADMSN_TIME = FIRST_HOSP_DATE
-        )coh
-join CLARITY.patient p      ON coh.pat_id = p.pat_id
-LEFT JOIN clarity.zc_ethnic_group eg 
-	ON p.ethnic_group_c = eg.ethnic_group_c
-LEFT JOIN clarity.zc_patient_status ps 
-	ON p.pat_status_c = ps.patient_status_c
-LEFT JOIN clarity.zc_sex s 
-	ON p.sex_c = s.rcpt_mem_sex_c
-LEFT JOIN clarity.patient_3 on p.pat_id = patient_3.pat_id
-LEFT JOIN clarity.patient_fyi_flags flags on p.pat_id = flags.patient_id
-left join clarity.patient_race r on coh.pat_id = r.pat_id
-left JOIN clarity.zc_patient_race pr ON r.patient_race_c = pr.patient_race_c
-WHERE p.pat_mrn_id NOT LIKE '<%>'		--- remove patients with invalid MRNs (MRN Not <%>) and test patients.  
-AND p.birth_date is NOT NULL			--exclude patients w/o dob
-AND (patient_3.pat_id is null OR patient_3.is_test_pat_yn is null or patient_3.is_test_pat_yn = 'N')
-AND (flags.PAT_FLAG_TYPE_C is null OR flags.PAT_FLAG_TYPE_C not in (6,8,9,1018,1053))			------  Removed flagged restricted patients
-AND r.patient_race_c is not null
---AND MONTHS_BETWEEN(coh.FIRST_HOSP_DATE,p.birth_date)/12 >= 18
-) pat 
+	(SELECT DISTINCT coh.pat_id,
+			null as mom_pat_id,
+			null as FIRST_ENC_DATE,
+			--coh.PAT_ENC_CSN_ID,
+			--p.pat_mrn_id,
+			p.birth_date,
+			--p.death_date,
+			ps.name patient_status,
+			coalesce(p.ethnic_group_c, -999) ethnic_group_c, 
+			coalesce(eg.name, 'Unknown') ethnic_group,
+			coalesce(s.name, 'Unknown') sex,
+			null as mapped_race_name,
+			p.restricted_yn,
+			null as mapped_race_c,
+			null as BENEFIT_PLAN_NAME,
+			null as FINANCIAL_CLASS
+	FROM --(SELECT * 
+		  --FROM 
+			  (-- ALL WOMEN WITH A PREGANNCY RELATED DX
+				SELECT DISTINCT PAT_ID as pat_id
+						,'M' MOM_CHILD_YN
+				FROM xdr_wherry_prg_pregall
+				union
+				--ALL CHILDREN LINKED TO A WOMAN WITH A PREGNANCY RELATED DX
+				SELECT DISTINCT NB_PAT_ID as CHILD_pat_id
+						,'C' MOM_CHILD_YN
+					--,MOM_CSN
+					--,HOSP_ADMSN_TIME
+					--,MIN(HOSP_ADMSN_TIME) OVER (PARTITION BY pat_id) AS FIRST_HOSP_DATE
+				FROM xdr_wherry_all_mom_child
+			)coh
+	join CLARITY.patient p      ON coh.pat_id = p.pat_id
+	LEFT JOIN clarity.zc_ethnic_group eg 
+		ON p.ethnic_group_c = eg.ethnic_group_c
+	LEFT JOIN clarity.zc_patient_status ps 
+		ON p.pat_status_c = ps.patient_status_c
+	LEFT JOIN clarity.zc_sex s 
+		ON p.sex_c = s.rcpt_mem_sex_c
+	LEFT JOIN clarity.patient_3 on p.pat_id = patient_3.pat_id
+	LEFT JOIN clarity.patient_fyi_flags flags on p.pat_id = flags.patient_id
+	left join clarity.patient_race r on coh.pat_id = r.pat_id
+	left JOIN clarity.zc_patient_race pr ON r.patient_race_c = pr.patient_race_c
+	WHERE p.pat_mrn_id NOT LIKE '<%>'		--- remove patients with invalid MRNs (MRN Not <%>) and test patients.  
+			AND p.birth_date is NOT NULL			--exclude patients w/o dob
+			AND (patient_3.pat_id is null OR patient_3.is_test_pat_yn is null or patient_3.is_test_pat_yn = 'N')
+			AND (flags.PAT_FLAG_TYPE_C is null OR flags.PAT_FLAG_TYPE_C not in (6,8,9,1018,1053))			------  Removed flagged restricted patients
+			AND r.patient_race_c is not null
+	) pat 
 ORDER BY  dbms_random.value
 ;
 --14,715 rows inserted.
@@ -133,8 +126,8 @@ SELECT * FROM XDR_WHERRY_preg_pat ORDER BY PAT_ID;
 DROP TABLE XDR_WHERRY_preg_pat_ALLRACE PURGE;
 CREATE TABLE XDR_WHERRY_preg_pat_ALLRACE AS 
 SELECT r.pat_id, 
-r.patient_race_c, 
-pr.name
+		r.patient_race_c, 
+		pr.name
 FROM XDR_WHERRY_preg_pat pat
 join clarity.patient_race r on pat.pat_id = r.pat_id
 JOIN clarity.zc_patient_race pr ON r.patient_race_c = pr.patient_race_c

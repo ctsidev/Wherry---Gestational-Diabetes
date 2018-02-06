@@ -34,7 +34,7 @@ CREATE TABLE xdr_wherry_prg_pregall AS
         AND (REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
         OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')        --ICD-9: V22-V23 (includes all subcategories)
         )
-        AND dx.CONTACT_DATE BETWEEN '01/01/2006' AND '01/18/2018'
+        AND dx.CONTACT_DATE BETWEEN '01/01/2006' AND '02/05/2018'
 UNION
     SELECT DISTINCT mom.pat_id
                 ,10 AS ICD_TYPE
@@ -48,7 +48,7 @@ UNION
         AND (REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')         --ICD-10: Z34, Z3A, Z37, O categories
         OR REGEXP_LIKE(edg.code,'^O+')              --ICD-10: Z34, Z3A, Z37, O categories
         )
-        AND dx.CONTACT_DATE BETWEEN '01/01/2006' AND '01/18/2018'
+        AND dx.CONTACT_DATE BETWEEN '01/01/2006' AND '02/05/2018'
 UNION
     SELECT DISTINCT mom.pat_id
         ,9 AS ICD_TYPE
@@ -63,7 +63,7 @@ UNION
         AND (REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
         OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')       --ICD-9: V22-V23 (includes all subcategories)
         )
-        AND enc.CONTACT_DATE BETWEEN '01/01/2006' AND '01/18/2018'
+        AND enc.CONTACT_DATE BETWEEN '01/01/2006' AND '02/05/2018'
 UNION
     SELECT DISTINCT mom.pat_id
         ,10 AS ICD_TYPE
@@ -78,7 +78,7 @@ UNION
         AND (REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')       --ICD-10: Z34, Z3A, Z37, O categories
         OR REGEXP_LIKE(edg.code,'^O+')       --ICD-10: Z34, Z3A, Z37, O categories
         )
-        AND enc.CONTACT_DATE BETWEEN '01/01/2006' AND '01/18/2018'
+        AND enc.CONTACT_DATE BETWEEN '01/01/2006' AND '02/05/2018'
 --legacy data
 UNION
 	select PAT_ID
@@ -150,13 +150,9 @@ SELECT e.pat_id,
         --LEFT JOIN XDR_WHERRY_preg_childall  cld ON 
         --left join clarity.clarity_loc               loc ON dep.rev_loc_id = loc.loc_id
         WHERE 
-			--discard errors and dummy/test encounters
 			e.enc_type_c not in (2532, 2534, 40, 2514, 2505, 2506, 2512, 2507)
-			--the potential mother had a hospital encounter
-			--AND enctype.name = 'Hospital Encounter'
-			--Encounter took place on the same date where one of the children was born
---			AND e.effective_date_dt IN (SELECT DISTINCT birth_date
---										FROM XDR_WHERRY_preg_childall)
+			AND e.effective_date_dt BETWEEN '01/01/2006' AND '01/25/2018'
+
 ;
 select count(*) , count(distinct pat_id)  from XDR_WHERRY_preg_ENC_pregall;  --1064076	69895
 --There are 44,921 potential mothers with a hospital encounter in this period.

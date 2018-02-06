@@ -54,7 +54,7 @@ SELECT 	DISTINCT coh.pat_id,
               JOIN clarity.clarity_component    cc  ON o.component_id = cc.component_id
               LEFT JOIN clarity.order_proc_2    op2 ON p.ORDER_PROC_ID = op2.ORDER_PROC_ID
               where p.order_type_c in (7, 26, 62, 63)			--doulbe check this codes
-                      and p.ordering_date between to_date('10/01/2014','mm/dd/yyyy') and to_date('10/01/2016','mm/dd/yyyy')
+                      and p.ordering_date between to_date('01/01/2006','mm/dd/yyyy') and to_date('02/06/2018','mm/dd/yyyy')
                       and o.ord_value is not null
                       and o.order_proc_id is not null
 ;

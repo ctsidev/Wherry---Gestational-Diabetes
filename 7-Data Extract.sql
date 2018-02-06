@@ -26,12 +26,14 @@ SELECT COUNT(*) FROM XDR_WHERRY_preg_ENCKEY    ; --
 --------------------------------------------------------------------------------
 SELECT DISTINCT pat.study_id,
                ROUND(MONTHS_BETWEEN(SYSDATE,pat.birth_date)/12)         AS age,
-               pat.sex                            AS gender,
-               pat.mapped_race_name               AS race,
-               pat.ethnic_group                   AS ethnicity,
-               pat.PATIENT_STATUS                 AS vital_status
-			   --extract(year  from PAT.FIRST_HOSP_DATE) as year_first_admission   
-			pat.mom_child_mc = 'M'			   
+               pat.sex                            	AS gender,
+               pat.mapped_race_name               	AS race,
+               pat.ethnic_group                   	AS ethnicity,
+               pat.PATIENT_STATUS                 	AS vital_status,
+			   extract(year from PAT.LAST_ENC_DATE) AS year_last_encounter,     
+               pat.BENEFIT_PLAN_NAME,
+               pat.FINANCIAL_CLASS,
+			   pat.mom_child_mc
   FROM xdr_WHERRY_preg_pat 	                  pat
   WHERE pat.mom_child_mc = 'M'
   order by study_id;
@@ -40,13 +42,16 @@ SELECT DISTINCT pat.study_id,
 -- STEP 7.3: Demographics Pull  - Children
 --------------------------------------------------------------------------------
 SELECT DISTINCT pat.study_id,
-                mom.study_id                                            AS mom_study_id,
-                ROUND(MONTHS_BETWEEN(first_enc_date,pat.birth_date)/12)         AS age_at_mom_first_enc,
-                pat.sex                            AS gender,
-                pat.mapped_race_name               AS race,
-                pat.ethnic_group                   AS ethnicity,
-                pat.PATIENT_STATUS                 AS vital_status,
-			    extract(year  from PAT.FIRST_ENC_DATE) as year_first_admission    
+                mom.study_id                            AS mom_study_id,
+                ROUND(mom.first_enc_date - pat.birth_date)  AS age_days_mom_first_enc,
+                pat.sex                            		AS gender,
+                pat.mapped_race_name               		AS race,
+                pat.ethnic_group                   		AS ethnicity,
+                pat.PATIENT_STATUS                 		AS vital_status,
+			    --extract(year from PAT.LAST_ENC_DATE) as year_last_encounter,     
+                pat.BENEFIT_PLAN_NAME,
+                pat.FINANCIAL_CLASS,
+			    pat.mom_child_mc
   FROM xdr_WHERRY_preg_pat 	                  pat
   JOIN xdr_WHERRY_preg_pat 	                  mom on pat.mom_pat_id = mom.pat_id
   WHERE pat.mom_child_mc = 'C'
@@ -77,15 +82,13 @@ from XDR_WHERRY_preg_DX     				dx
 --JOIN XDR_WHERRY_preg_ENC    		enc on dx.pat_enc_csn_id = enc.pat_enc_csn_id
 JOIN XDR_WHERRY_preg_pat    				pat on dx.pat_id = pat.pat_id
 JOIN XDR_WHERRY_preg_ENCKEY    				enck on dx.pat_enc_csn_id = enck.pat_enc_csn_id
-LEFT JOIN xdr_wherry_all_mom_child 			lnk  on dx.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
-LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on lnk.mom_pat_id = mom.pat_id and mom.mom_child_mc = 'M'
-LEFT JOIN XDR_WHERRY_preg_DX_LOOKUP        icd9  ON dx.icd_code = icd9.code
+--LEFT JOIN xdr_wherry_all_mom_child 			lnk  on dx.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
+LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on pat.mom_pat_id = mom.pat_id AND pat.pat_id = 'C' AND mom.mom_child_mc = 'M'
+LEFT JOIN XDR_WHERRY_preg_DX_LOOKUP        	icd9  ON dx.icd_code = icd9.code
                                               AND icd9.icd_type = 9
-LEFT JOIN XDR_WHERRY_preg_DX_LOOKUP        icd10  ON dx.icd_code = icd10.code
+LEFT JOIN XDR_WHERRY_preg_DX_LOOKUP        	icd10  ON dx.icd_code = icd10.code
                                               AND icd10.icd_type = 10
-ORDER BY pat.study_id,enck.encounter_id;
-
---------------------------------------------------------------------------------
+ORDER BY pat.study_id,enck.encounter_id;--------------------------------------------------------------------------------
 -- STEP 7.5: Procedures Pull 
 --------------------------------------------------------------------------------
 select  DISTINCT pat.study_id
@@ -106,16 +109,17 @@ from xdr_WHERRY_preg_prc     		prc
 JOIN XDR_WHERRY_preg_pat           	pat  on prc.pat_id = pat.pat_id
 JOIN XDR_WHERRY_preg_ENCKEY        	enck on prc.pat_enc_csn_id = enck.pat_enc_csn_id
 LEFT JOIN xdr_wherry_all_mom_child 	lnk  on PRC.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
-LEFT JOIN xdr_WHERRY_preg_pat 	    mom  on lnk.mom_pat_id = mom.pat_id and mom.mom_child_mc = 'M'
+LEFT JOIN xdr_WHERRY_preg_pat 	    mom  on lnk.mom_pat_id = mom.pat_id AND pat.pat_id = 'C' AND mom.mom_child_mc = 'M'
 --JOIN XDR_WHERRY_preg_ENC           enc  on prc.pat_enc_csn_id = enc.pat_enc_csn_id
 ORDER BY study_id, encounter_id;
+
 
 --------------------------------------------------------------------------------
 -- STEP 7.6: Flowsheets Pull 
 --------------------------------------------------------------------------------
 SELECT DISTINCT pat.study_id
                ,enck.encounter_id
-				,EXTRACT(YEAR FROM flo.recorded_time) year_rec_da
+				,EXTRACT(YEAR FROM flo.recorded_time) dt
                --,ROUND(flo.recorded_time - pat.first_enc_date) rec_dt_days_first_enc
 			   
 			   ,CASE WHEN pat.mom_child_mc = 'M' THEN ROUND(flo.recorded_time - pat.first_enc_date) 
@@ -130,37 +134,32 @@ SELECT DISTINCT pat.study_id
 FROM xdr_WHERRY_preg_flo          flo
 JOIN XDR_WHERRY_preg_pat          pat  on flo.pat_id = pat.pat_id
 JOIN XDR_WHERRY_preg_ENCKEY       enck on flo.pat_enc_csn_id = enck.pat_enc_csn_id
-LEFT JOIN xdr_wherry_all_mom_child 			lnk  on flo.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
-LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on lnk.mom_pat_id = mom.pat_id and mom.mom_child_mc = 'M'
-ORDER BY pat.study_id,enck.encounter_id,hours_after_admission;
+--LEFT JOIN xdr_wherry_all_mom_child 			lnk  on flo.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
+LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on pat.mom_pat_id = mom.pat_id AND pat.pat_id = 'C' AND mom.mom_child_mc = 'M'
+ORDER BY pat.study_id,enck.encounter_id,year_rec_da;
 
 --------------------------------------------------------------------------------
 -- STEP 7.7: Lab Pull 
 --------------------------------------------------------------------------------
 SELECT DISTINCT pat.study_id
                ,enck.encounter_id
-               --,lab.proc_id                
+               ,lab.proc_id                
                ,lab.description           
                ,lab.component_id       
                ,lab.component_name      
                ,EXTRACT(YEAR FROM lab.order_time) year_order_date
-               --,ROUND(lab.order_time - pat.first_enc_date) order_dt_days_first_enc
 			   ,CASE WHEN pat.mom_child_mc = 'M' THEN ROUND(lab.order_time - pat.first_enc_date) 
 						WHEN pat.mom_child_mc = 'C' THEN ROUND(lab.order_time - mom.first_enc_date) 
 					ELSE 999999999
 				END order_dt_days_first_enc
-				
-				
+		
                ,EXTRACT(YEAR FROM lab.SPECIMN_TAKEN_TIME) year_SPECIMN_date
-               --,ROUND(lab.SPECIMN_TAKEN_TIME - pat.first_enc_date) SPECIMN_dt_days_first_encc
 			   ,CASE WHEN pat.mom_child_mc = 'M' THEN ROUND(lab.SPECIMN_TAKEN_TIME - pat.first_enc_date) 
 						WHEN pat.mom_child_mc = 'C' THEN ROUND(lab.SPECIMN_TAKEN_TIME - mom.first_enc_date) 
 					ELSE 999999999
 				END SPECIMN_dt_days_first_enc
-				
-				
+
                ,EXTRACT(YEAR FROM lab.RESULT_time) year_RESULT_date
-               --,ROUND(lab.RESULT_time - pat.first_enc_date) RESULT_dt_days_first_enc
 			   ,CASE WHEN pat.mom_child_mc = 'M' THEN ROUND(lab.RESULT_time - pat.first_enc_date) 
 						WHEN pat.mom_child_mc = 'C' THEN ROUND(lab.RESULT_time - mom.first_enc_date) 
 					ELSE 999999999
@@ -173,8 +172,8 @@ SELECT DISTINCT pat.study_id
 FROM xdr_WHERRY_preg_lab          			lab 
 JOIN XDR_WHERRY_preg_pat          			pat  on lab.pat_id = pat.pat_id
 JOIN XDR_WHERRY_preg_ENCKEY       			enck on lab.pat_enc_csn_id = enck.pat_enc_csn_id
-LEFT JOIN xdr_wherry_all_mom_child 			lnk  on lab.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
-LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on lnk.mom_pat_id = mom.pat_id and mom.mom_child_mc = 'M'
+--LEFT JOIN xdr_wherry_all_mom_child 			lnk  on lab.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
+LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on pat.mom_pat_id = mom.pat_id AND pat.pat_id = 'C' AND mom.mom_child_mc = 'M'
 --JOIN XDR_WHERRY_preg_ENC          enc  on lab.pat_enc_csn_id = enc.pat_enc_csn_id
 ORDER BY pat.study_id,enck.encounter_id,component_name,order_dt_days_first_enc;
 
@@ -185,12 +184,18 @@ ORDER BY pat.study_id,enck.encounter_id,component_name,order_dt_days_first_enc;
 SELECT DISTINCT pat.study_id
                ,enck.encounter_id
                ,med.order_med_id
+               ,EXTRACT(YEAR FROM nvl(mar.taken_time, med.ORDER_INST))   AS taken_time_order_date
+               ,CASE WHEN pat.mom_child_mc = 'M' THEN ROUND(nvl(mar.taken_time, med.ORDER_INST) - pat.first_enc_date) 
+						WHEN pat.mom_child_mc = 'C' THEN ROUND(nvl(mar.taken_time, med.ORDER_INST)- mom.first_enc_date) 
+					ELSE 999999999
+				END order_dt_days_first_enc
+                
                ,EXTRACT(YEAR FROM med.ORDER_INST) year_order_date
                --,ROUND(med.ORDER_INST - pat.first_enc_date) order_dt_days_first_enc
 			   ,CASE WHEN pat.mom_child_mc = 'M' THEN ROUND(med.ORDER_INST - pat.first_enc_date) 
 						WHEN pat.mom_child_mc = 'C' THEN ROUND(med.ORDER_INST - mom.first_enc_date) 
 					ELSE 999999999
-				END order_dt_days_first_enc
+				END taken_dt_days_first_enc
 				
 				
                ,EXTRACT(YEAR FROM med.ORDER_START_TIME) year_start_date
@@ -207,25 +212,23 @@ SELECT DISTINCT pat.study_id
 						WHEN pat.mom_child_mc = 'C' THEN ROUND(med.ORDER_END_TIME - mom.first_enc_date) 
 					ELSE 999999999
 				END end_dt_days_first_enc
-				
-				
                ,med.medication_name
                ,med.generic_name
-		,med.sig
-               ,med.HV_DISCRETE_DOSE as dose
-                ,med.DOSE_UNIT
-                ,med.FREQ_NAME as FREQUENCY        
+               ,med.sig
+               ,med.HV_DISCRETE_DOSE            AS dose
+               ,med.DOSE_UNIT
+               ,med.FREQ_NAME                   AS FREQUENCY        
                 --,med.ROUTE_NAME
                 --,med.INFUSION_RATE
-		--,med.inf_rate_dose_unit
+                --,med.inf_rate_dose_unit
                ,med.pharm_class
                ,med.pharm_subclass
                ,pat.mom_child_mc
-FROM xdr_WHERRY_preg_med          med
-JOIN XDR_WHERRY_preg_pat          pat  on med.pat_id = pat.pat_id
-JOIN XDR_WHERRY_preg_ENCKEY       enck on med.pat_enc_csn_id = enck.pat_enc_csn_id
-LEFT JOIN xdr_wherry_all_mom_child 			lnk  on lab.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
-LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on lnk.mom_pat_id = mom.pat_id and mom.mom_child_mc = 'M'
+FROM xdr_WHERRY_preg_med          			med
+JOIN XDR_WHERRY_preg_pat          			pat  on med.pat_id = pat.pat_id
+JOIN XDR_WHERRY_preg_ENCKEY       			enck on med.pat_enc_csn_id = enck.pat_enc_csn_id
+--LEFT JOIN xdr_wherry_all_mom_child 			lnk  on lab.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
+LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on pat.mom_pat_id = mom.pat_id AND pat.pat_id = 'C' AND mom.mom_child_mc = 'M'
 ORDER BY pat.study_id, medication_name 
 ;
 
@@ -234,14 +237,21 @@ ORDER BY pat.study_id, medication_name
 --------------------------------------------------------------------------------
 SELECT DISTINCT pat.study_id
                ,alg.allergen_id
-               ,alg.DESCRIPTION   allergen_name
-               --,alg.reaction
-               --,alg.allergy_status
+               ,alg.DESCRIPTION             AS allergen_name
+               ,EXTRACT(YEAR FROM alg.DATE_NOTED) year_noted_date
+               --,ROUND(med.ORDER_END_TIME - pat.first_enc_date) end_dt_days_first_enc
+			   ,CASE WHEN pat.mom_child_mc = 'M' THEN ROUND(alg.DATE_NOTED - pat.first_enc_date) 
+						WHEN pat.mom_child_mc = 'C' THEN ROUND(alg.DATE_NOTED - mom.first_enc_date) 
+					ELSE 999999999
+				END noted_dt_days_first_enc
+
+               ,alg.reaction
+               ,alg.allergy_status
                ,alg.severity
                ,pat.mom_child_mc
-FROM xdr_WHERRY_preg_alg         alg
---JOIN xdr_WHERRY_preg_algdrv         drv on alg.allergen_id = drv.allergen_id
-JOIN XDR_WHERRY_preg_pat    		pat on alg.pat_id = pat.pat_id
+FROM xdr_WHERRY_preg_alg                alg
+JOIN XDR_WHERRY_preg_pat    		    pat ON alg.pat_id = pat.pat_id
+LEFT JOIN xdr_WHERRY_preg_pat 	    	mom ON pat.mom_pat_id = mom.pat_id AND pat.pat_id = 'C' AND mom.mom_child_mc = 'M'
 ORDER BY pat.study_id, allergen_name;
 
 --------------------------------------------------------------------------------
@@ -257,43 +267,40 @@ FROM xdr_Wherry_preg_fam        fam
 JOIN XDR_WHERRY_preg_pat    	pat on fam.pat_id = pat.pat_id
 JOIN XDR_WHERRY_preg_ENCKEY     enck on fam.pat_enc_csn_id = enck.pat_enc_csn_id
 ORDER BY fam.study_id, fam.line;
+
 --------------------------------------------------------------------------------
 -- STEP 7.11: Social History Pull 
 --------------------------------------------------------------------------------
 SELECT DISTINCT pat.study_id
-               ,soc.sexually_active
-               ,soc.female_partner_yn                                           --never nulls; defaults to "N" when unchecked
-               ,soc.male_partner_yn                                             --never nulls; defaults to "N" when unchecked
+               --,soc.sexually_active
+               --,soc.female_partner_yn                                           --never nulls; defaults to "N" when unchecked
+               --,soc.male_partner_yn                                             --never nulls; defaults to "N" when unchecked
                ,soc.tobacco_pak_per_dy
                ,soc.tobacco_used_years
                ,soc.tobacco_user            
                ,soc.cigarettes_yn
                ,soc.smoking_tob_status
                ,EXTRACT(YEAR FROM soc.smoking_start_date) year_smk_start_date
-               ,EXTRACT(YEAR FROM soc.smoking_quit_date) year_smk_stop_date
-               --,ROUND(soc.smoking_start_date - pat.FIRST_ENC_DATE) as smk_start_days_after_first_enc
 			   ,CASE WHEN pat.mom_child_mc = 'M' THEN ROUND(soc.smoking_start_date - pat.first_enc_date) 
 						WHEN pat.mom_child_mc = 'C' THEN ROUND(soc.smoking_start_date - mom.first_enc_date) 
 					ELSE 999999999
 				END smk_start_days_after_first_enc
-				
-               --,ROUND(soc.smoking_quit_date - pat.FIRST_ENC_DATE) as smk_quit_days_after_first_enc
+               ,EXTRACT(YEAR FROM soc.smoking_quit_date) year_smk_quit_date
                ,CASE WHEN pat.mom_child_mc = 'M' THEN ROUND(soc.smoking_quit_date - pat.first_enc_date) 
 						WHEN pat.mom_child_mc = 'C' THEN ROUND(soc.smoking_quit_date - mom.first_enc_date) 
 					ELSE 999999999
 				END smk_quit_days_after_first_enc
-				
-				,soc.alcohol_user
+			   ,soc.alcohol_user
                ,soc.alcohol_oz_per_wk
                ,soc.alcohol_type
                ,soc.iv_drug_user_yn 
                ,soc.illicit_drug_freq  
-               ,soc.illicit_drug_cmt
+               --,soc.illicit_drug_cmt
                ,pat.mom_child_mc
   FROM xdr_WHERRY_preg_soc          soc
   JOIN XDR_WHERRY_preg_pat    	    pat on soc.pat_id = pat.pat_id
-  LEFT JOIN xdr_wherry_all_mom_child 			lnk  on lab.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
-  LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on lnk.mom_pat_id = mom.pat_id and mom.mom_child_mc = 'M'
+  --LEFT JOIN xdr_wherry_all_mom_child 			lnk  on lab.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
+  LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on pat.mom_pat_id = mom.pat_id AND pat.pat_id = 'C' AND mom.mom_child_mc = 'M'
   ORDER BY pat.study_id;
   
 --------------------------------------------------------------------------------
@@ -358,22 +365,22 @@ SELECT DISTINCT pat.study_id
   FROM xdr_Wherry_preg_pldx              pdx
   JOIN xdr_WHerry_preg_pat               pat on pdx.pat_id = pat.pat_id
   LEFT JOIN XDR_WHERRY_preg_ENCKEY       enck on pdx.pat_enc_csn_id = enck.pat_enc_csn_id
-    LEFT JOIN xdr_wherry_all_mom_child 			lnk  on lab.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
-  LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on lnk.mom_pat_id = mom.pat_id and mom.mom_child_mc = 'M'
+  --LEFT JOIN xdr_wherry_all_mom_child 			lnk  on lab.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
+  LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on pat.mom_pat_id = mom.pat_id AND pat.pat_id = 'C' AND mom.mom_child_mc = 'M'
   ORDER BY pat.study_id, encounter_id, icd_type, icd_code;
 
 --------------------------------------------------------------------------------
 -- STEP 7.16: Pull mother - child linkage
 --------------------------------------------------------------------------------
 SELECT mom.pat_id as mom_study_id
-		,cld.study_id as chld_study_id
+		,cld.study_id as child_study_id
 		--flags
 		,lkn.address_match
 		,lkn.phone_match
 		,lkn.email_match
 		,lkn.proxy_match
 		,lkn.similar_adddress
-FROM xdr_wherry_all_mom_child	lkn
+FROM xdr_wherry_all_mom_child				lkn
 left JOIN xdr_WHerry_preg_pat               mom on lnk.mom_pat_id = mom.pat_id AND mom.mom_child_mc = 'M'
 left JOIN xdr_WHerry_preg_pat               cld on pdx.nb_pat_id = cld.pat_id AND cld.mom_child_mc = 'M'
  
