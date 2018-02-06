@@ -45,7 +45,9 @@ DROP TABLE XDR_WHERRY_preg_pat PURGE;
 	"MAPPED_RACE_C" NUMBER(38,0),
     "BENEFIT_PLAN_NAME" VARCHAR2(254 BYTE),
     "FINANCIAL_CLASS" VARCHAR2(254 BYTE),
-    "MOM_CHILD_MC" VARCHAR2(1 BYTE)
+    "MOM_CHILD_MC" VARCHAR2(1 BYTE),
+	"RESTRICTED_YN" VARCHAR2(1 BYTE),
+	"CUR_PCP_PROV_ID" VARCHAR2(254 BYTE)
   );  
 
 
@@ -70,7 +72,9 @@ from
 			p.restricted_yn,
 			null as mapped_race_c,
 			null as BENEFIT_PLAN_NAME,
-			null as FINANCIAL_CLASS
+			null as FINANCIAL_CLASS,
+			p.restricted_yn,
+			p.cur_pcp_prov_id
 	FROM --(SELECT * 
 		  --FROM 
 			  (-- ALL WOMEN WITH A PREGANNCY RELATED DX
