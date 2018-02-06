@@ -13,6 +13,7 @@ CREATE TABLE XDR_WHERRY_preg_COUNTS
 	LOAD_TIME timestamp default systimestamp);
 
 	
+
 -- *******************************************************************************************************
 -- STEP 1.2
 --   Create an initial Patient table with ALL mother records based on diagnoses codes
@@ -89,13 +90,13 @@ UNION
 	WHERE (REGEXP_LIKE(ICD9_CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
         OR REGEXP_LIKE(ICD9_CODE,'^V2(2|3)+')        --ICD-9: V22-V23 (includes all subcategories)
         )
-        AND EFFECTIVE_DATE BETWEEN '01/01/2006' AND '01/25/2018'
+        AND EFFECTIVE_DATE BETWEEN '01/01/2006' AND '02/05/2018'
 ;
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'xdr_wherry_prg_pregall' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT	--    77298(2/5/18)
+	,COUNT(*) AS TOTAL_COUNT 		--1783361(2/5/18)
 FROM xdr_wherry_prg_pregall;
 COMMIT;
 
@@ -151,18 +152,20 @@ SELECT e.pat_id,
         --left join clarity.clarity_loc               loc ON dep.rev_loc_id = loc.loc_id
         WHERE 
 			e.enc_type_c not in (2532, 2534, 40, 2514, 2505, 2506, 2512, 2507)
-			AND e.effective_date_dt BETWEEN '01/01/2006' AND '01/25/2018'
+			AND e.effective_date_dt BETWEEN '01/01/2006' AND '02/05/2018'
 
 ;
+
+/* Remove from final version
 select count(*) , count(distinct pat_id)  from XDR_WHERRY_preg_ENC_pregall;  --1064076	69895
 --There are 44,921 potential mothers with a hospital encounter in this period.
 select count(*) , count(distinct enc.pat_id)  
 from XDR_WHERRY_preg_ENC_pregall enc
 join (select distinct pat_id  from XDR_WHERRY_PRG_PREGALL where CONTACT_DATE BETWEEN '01/01/2006' AND '03/01/2013') dx on enc.pat_id = dx.pat_id
 where enc.effective_date_dt BETWEEN '01/01/2006' AND '03/01/2013'; --767055			44921
+*/
 
-
---CREATE INDEXES
+--These indexes shall improve performance on future steps.
 CREATE INDEX XDR_WHERRY_preg_ENC_preg_DTIX ON XDR_WHERRY_preg_ENC(hosp_admsn_time);
 CREATE INDEX XDR_WHERRY_preg_ENC_preg_DTIX ON XDR_WHERRY_preg_ENC(hosp_dischrg_time);
 CREATE INDEX XDR_WHERRY_preg_childall_BDIX ON XDR_WHERRY_preg_ENC(BIRTH_DATE);
