@@ -120,6 +120,7 @@ Additionally, in some cases where dispensable_med_id is not populated, user_sel_
     rou.abbr                    AS route_abbreviation,
 	mar.INFUSION_RATE,
 	mar.MAR_INF_RATE_UNIT_C,
+	,mar.taken_time,
 	zmudis.name as inf_rate_dose_unit
 FROM clarity.order_med m 
 JOIN XDR_WHERRY_preg_pat            coh ON m.pat_id = coh.pat_id
@@ -368,7 +369,7 @@ using
         edg.code as icd_code,
         9 as icd_type
     from XDR_Wherry_preg_PAT coh
-    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    JOIN XDR_Wherry_preg_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd9 edg ON hd.dx_id = edg.dx_id
     where t.hosp_admsn_time is not null
@@ -382,7 +383,7 @@ using
         edg.code as icd_code,
         10 as icd_type
     from XDR_Wherry_preg_PAT coh
-    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    JOIN XDR_Wherry_preg_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd10 edg ON hd.dx_id = edg.dx_id
     left join clarity.ZC_DX_POA zdp on hd.final_dx_poa_c = zdp.dx_poa_c
