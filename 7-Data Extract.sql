@@ -33,8 +33,12 @@ SELECT DISTINCT pat.study_id,
 			   extract(year from PAT.LAST_ENC_DATE) AS year_last_encounter,     
                pat.BENEFIT_PLAN_NAME,
                pat.FINANCIAL_CLASS,
+			   CASE WHEN emp.user_id IS NOT NULL THEN 'y' ELSE 'n' END PCP_is_UC_provider_yn,
 			   pat.mom_child_mc
   FROM xdr_WHERRY_preg_pat 	                  pat
+  LEFT JOIN clarity.CLARITY_EMP               emp ON pat.cur_pcp_prov_id = emp.PROV_ID 
+  --if active status is needed
+  --LEFT JOIN clarity.clarity_ser                     ser ON pat.cur_pcp_prov_id = ser.PROV_ID
   WHERE pat.mom_child_mc = 'M'
   order by study_id;
 
@@ -51,9 +55,13 @@ SELECT DISTINCT pat.study_id,
 			    --extract(year from PAT.LAST_ENC_DATE) as year_last_encounter,     
                 pat.BENEFIT_PLAN_NAME,
                 pat.FINANCIAL_CLASS,
+				CASE WHEN emp.user_id IS NOT NULL THEN 'y' ELSE 'n' END PCP_is_UC_provider_yn,
 			    pat.mom_child_mc
   FROM xdr_WHERRY_preg_pat 	                  pat
   JOIN xdr_WHERRY_preg_pat 	                  mom on pat.mom_pat_id = mom.pat_id
+  LEFT JOIN clarity.CLARITY_EMP               emp ON pat.cur_pcp_prov_id = emp.PROV_ID 
+  --if active status is needed
+  --LEFT JOIN clarity.clarity_ser                     ser ON pat.cur_pcp_prov_id = ser.PROV_ID  
   WHERE pat.mom_child_mc = 'C'
   order by study_id;               
 --------------------------------------------------------------------------------
