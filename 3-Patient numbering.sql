@@ -44,8 +44,8 @@ DROP TABLE XDR_WHERRY_preg_pat PURGE;
 	"MAPPED_RACE_NAME" VARCHAR2(254 BYTE), 
 	"RESTRICTED_YN" VARCHAR2(1 BYTE), 
 	"MAPPED_RACE_C" NUMBER(38,0),
-    "BENEFIT_PLAN_NAME" VARCHAR2(254 BYTE),
-    "FINANCIAL_CLASS" VARCHAR2(254 BYTE),
+    --"BENEFIT_PLAN_NAME" VARCHAR2(254 BYTE),
+    --"FINANCIAL_CLASS" VARCHAR2(254 BYTE),
 	"CUR_PCP_PROV_ID" VARCHAR2(254 BYTE),
 	"MOM_CHILD_MC" VARCHAR2(1 BYTE)
   );  
@@ -72,8 +72,8 @@ from
 					null as mapped_race_name,
 					p.restricted_yn,
 					null as mapped_race_c,
-					null as BENEFIT_PLAN_NAME,
-					null as FINANCIAL_CLASS,
+					--null as BENEFIT_PLAN_NAME,
+					--null as FINANCIAL_CLASS,
 					p.cur_pcp_prov_id,
 					coh.MOM_CHILD_YN
 	FROM 
