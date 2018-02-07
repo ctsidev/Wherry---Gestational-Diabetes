@@ -8,6 +8,7 @@
 DROP TABLE xdr_Wherry_preg_lab PURGE;
 CREATE TABLE xdr_Wherry_preg_lab AS 
 SELECT 	DISTINCT coh.pat_id,
+                coh.study_id,
                 o.pat_enc_csn_id, 
                 o.order_proc_id, 
                 p.proc_id, 
@@ -28,6 +29,7 @@ SELECT 	DISTINCT coh.pat_id,
                 p.order_type_c,
                 o.RESULT_FLAG_C,
                 op2.specimn_taken_time,
+                coh.mom_child_mc,
 		--If there is a relevant operator in this field ('%','<','>','='), it gets captured in its own field
                 case when regexp_like(ord_value,'[%<>]=*','i') then regexp_substr(o.ord_value,'[><%]=*') else null end as harm_sign,
                 trim(o.ord_value) as harm_text_val,
@@ -54,7 +56,7 @@ SELECT 	DISTINCT coh.pat_id,
               JOIN clarity.clarity_component    cc  ON o.component_id = cc.component_id
               LEFT JOIN clarity.order_proc_2    op2 ON p.ORDER_PROC_ID = op2.ORDER_PROC_ID
               where p.order_type_c in (7, 26, 62, 63)			--doulbe check this codes
-                      and p.ordering_date between to_date('01/01/2006','mm/dd/yyyy') and to_date('02/06/2018','mm/dd/yyyy')
+                      and p.ordering_date between to_date('01/01/2006','mm/dd/yyyy') and to_date('02/05/2018','mm/dd/yyyy')
                       and o.ord_value is not null
                       and o.order_proc_id is not null
 ;
@@ -65,83 +67,83 @@ CREATE INDEX xdr_Wherry_preg_lab_ENCIDIX ON xdr_Wherry_preg_lab(pat_enc_csn_id);
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_LAB' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--2,555,351(9/5/17)
+	,COUNT(*) AS TOTAL_COUNT 				--2,555,351(9/5/17)
 FROM XDR_Wherry_preg_LAB;
 COMMIT;
                        
-
 --------------------------------------------------------------------------------
 --	STEP 6.2: Create Meds table
 -------------------------------------------------------------------------------- 
 DROP TABLE XDR_Wherry_preg_med PURGE;
 CREATE TABLE XDR_Wherry_preg_med as
 select DISTINCT med1.*,
-	cm.pharm_class_c,
-	zpc.name as pharm_class,
-	cm.thera_class_c,
-	ztc.name as thera_class,
-	cm.pharm_subclass_c,
-	zsc.name as pharm_subclass,
-  cm.name medication_name, 
-	cm.generic_name
+            cm.pharm_class_c,
+            zpc.name as pharm_class,
+            cm.thera_class_c,
+            ztc.name as thera_class,
+            cm.pharm_subclass_c,
+            zsc.name as pharm_subclass,
+            cm.name medication_name, 
+            cm.generic_name
 FROM (
-SELECT  m.pat_id,
-	m.pat_enc_csn_id, 
-	m.order_med_id, 
-	/*m.ordering_date, 
-	m.start_date,
-	m.end_date,*/
-	m.ORDER_INST,
-	m.ORDER_START_TIME,
-	m.ORDER_END_TIME,
-	/*
-	In some circumstances, for example when Intelligent Medication Selection selects an IMS mixture, this column may contain template records that do not represent real
-medications. For this reason, it is recommended to use ORDER_MEDINFO. DISPENSABLE_MED_ID when reporting on medication orders.
-Additionally, in some cases where dispensable_med_id is not populated, user_sel_med_id is the field form where to obtain the medication_id
-*/
-  case when m.medication_id != 800001 then m.medication_id
-       else coalesce(omi.dispensable_med_id, m.user_sel_med_id) end as used_med_id,        
-	m.medication_id, 
-  --omi.dispensable_med_id,
-  --m.user_sel_med_id,
-	m.hv_discrete_dose,
-	zmu.name as dose_unit,
-    m.MED_DIS_DISP_QTY,
-    zmudis.name as dis_dose_unit,
-    zos.name as order_status,
-    zom.name as ordering_mode,
-    zoc.name as order_class,
-	omi.last_admin_inst,
-	m.sig,
-	m.quantity,
-	ipf.freq_name,
-	m.refills,
-	rou.NAME                    AS route_name,
-    rou.abbr                    AS route_abbreviation,
-	mar.INFUSION_RATE,
-	mar.MAR_INF_RATE_UNIT_C,
-	,mar.taken_time,
-	zmudis.name as inf_rate_dose_unit
-FROM clarity.order_med m 
-JOIN XDR_WHERRY_preg_pat            coh ON m.pat_id = coh.pat_id
---JOIN XDR_Wherry_preg_COH  coh on m.pat_enc_csn_id = coh.pat_enc_csn_id
-LEFT JOIN clarity.order_medinfo     omi on m.order_med_id = omi.order_med_id
-LEFT JOIN clarity.mar_admin_info    mar   ON m.order_med_id = mar.order_med_id
-LEFT JOIN clarity.zc_admin_route    rou   ON mar.route_c = rou.MED_ROUTE_C
-left join clarity.ip_frequency      ipf on m.hv_discr_freq_id = ipf.freq_id
-left join clarity.zc_med_unit       zmu on m.hv_dose_unit_c = zmu.disp_qtyunit_c
-left join clarity.zc_order_status   zos on m.order_status_c = zos.order_status_c
-left join clarity.zc_ordering_mode  zom on m.ordering_mode_c = zom.ordering_mode_c
-left join clarity.zc_med_unit       zmudis on m.MED_DIS_DISP_UNIT_C = zmudis.disp_qtyunit_c
-left join clarity.zc_med_unit       zmudis2 on mar.MAR_INF_RATE_UNIT_C = zmudis2.disp_qtyunit_c
-left join clarity.zc_order_class zoc on m.order_class_C = zoc.order_class_c
-WHERE m.ordering_date is not null
-	AND m.start_date is not null
-) med1
-LEFT JOIN clarity.clarity_medication cm on med1.used_med_id = cm.medication_id
-left join clarity.zc_pharm_class zpc on cm.pharm_class_c = zpc.pharm_class_c
-left join clarity.zc_thera_class ztc on cm.thera_class_c = ztc.thera_class_c
-left join clarity.zc_pharm_subclass zsc on cm.pharm_subclass_c = zsc.pharm_subclass_c
+        SELECT  m.pat_id,
+                coh.study_id,
+                coh.mom_child_mc,
+                m.pat_enc_csn_id, 
+                m.order_med_id, 
+                /*m.ordering_date, 
+                m.start_date,
+                m.end_date,*/
+                m.ORDER_INST,
+                m.ORDER_START_TIME,
+                m.ORDER_END_TIME,
+            /*
+            In some circumstances, for example when Intelligent Medication Selection selects an IMS mixture, this column may contain template records that do not represent real
+        medications. For this reason, it is recommended to use ORDER_MEDINFO. DISPENSABLE_MED_ID when reporting on medication orders.
+        Additionally, in some cases where dispensable_med_id is not populated, user_sel_med_id is the field form where to obtain the medication_id
+        */
+              case when m.medication_id != 800001 then m.medication_id
+                   else coalesce(omi.dispensable_med_id, m.user_sel_med_id) end as used_med_id,        
+                m.medication_id, 
+              --omi.dispensable_med_id,
+              --m.user_sel_med_id,
+                m.hv_discrete_dose,
+                zmu.name as dose_unit,
+                m.MED_DIS_DISP_QTY,
+                zmudis.name as dis_dose_unit,
+                zos.name as order_status,
+                zom.name as ordering_mode,
+                zoc.name as order_class,
+                omi.last_admin_inst,
+                m.sig,
+                m.quantity,
+                ipf.freq_name,
+                m.refills,
+                rou.NAME                    AS route_name,
+                rou.abbr                    AS route_abbreviation,
+                mar.INFUSION_RATE,
+                mar.MAR_INF_RATE_UNIT_C,
+                mar.taken_time,
+                zmudis.name as inf_rate_dose_unit
+        FROM clarity.order_med m 
+        JOIN XDR_WHERRY_preg_pat            coh ON m.pat_id = coh.pat_id
+        LEFT JOIN clarity.order_medinfo     omi ON m.order_med_id = omi.order_med_id
+        LEFT JOIN clarity.mar_admin_info    mar ON m.order_med_id = mar.order_med_id
+        LEFT JOIN clarity.zc_admin_route    rou ON mar.route_c = rou.MED_ROUTE_C
+        left join clarity.ip_frequency      ipf ON m.hv_discr_freq_id = ipf.freq_id
+        left join clarity.zc_med_unit       zmu ON m.hv_dose_unit_c = zmu.disp_qtyunit_c
+        left join clarity.zc_order_status   zos ON m.order_status_c = zos.order_status_c
+        left join clarity.zc_ordering_mode  zom ON m.ordering_mode_c = zom.ordering_mode_c
+        left join clarity.zc_med_unit       zmudis ON m.MED_DIS_DISP_UNIT_C = zmudis.disp_qtyunit_c
+        left join clarity.zc_med_unit       zmudis2 ON mar.MAR_INF_RATE_UNIT_C = zmudis2.disp_qtyunit_c
+        left join clarity.zc_order_class    zoc ON m.order_class_C = zoc.order_class_c
+        WHERE m.ordering_date is not null
+                OR m.start_date is not null
+        ) med1
+LEFT JOIN clarity.clarity_medication    cm ON med1.used_med_id = cm.medication_id
+left join clarity.zc_pharm_class        zpc ON cm.pharm_class_c = zpc.pharm_class_c
+left join clarity.zc_thera_class        ztc ON cm.thera_class_c = ztc.thera_class_c
+left join clarity.zc_pharm_subclass     zsc ON cm.pharm_subclass_c = zsc.pharm_subclass_c
 ;
 
 --Add counts for QA
@@ -158,6 +160,8 @@ COMMIT;
 DROP TABLE xdr_Wherry_preg_alg PURGE;
 CREATE TABLE xdr_Wherry_preg_alg as
 SELECT DISTINCT pat.pat_id 
+				,pat.study_id
+				,pat.mom_child_mc
                ,alg.allergy_id
                ,alg.allergen_id
                ,alg.description
@@ -227,6 +231,7 @@ JOIN clarity.pat_enc_dx dx ON coh.pat_id = dx.pat_id
 JOIN clarity.edg_current_icd9 edg ON dx.dx_id = edg.dx_id
 WHERE dx.primary_dx_yn = 'Y' 
   and edg.code not like 'IMO0%'
+  AND dx.contact_date BETWEEN '01/01/2006' AND '02/05/2018'
 UNION
 SELECT coh.pat_id, 
 	   dx.pat_enc_csn_id, 
@@ -242,6 +247,7 @@ JOIN clarity.pat_enc_dx dx ON coh.pat_id = dx.pat_id
 JOIN clarity.edg_current_icd10 edg ON dx.dx_id = edg.dx_id
 WHERE dx.primary_dx_yn = 'Y' 
   and edg.code not like 'IMO0%'
+  AND dx.contact_date BETWEEN '01/01/2006' AND '02/05/2018'
 ;
 commit;
 
@@ -268,6 +274,7 @@ JOIN clarity.pat_enc_dx dx ON coh.pat_id = dx.pat_id
 JOIN clarity.edg_current_icd9 edg ON dx.dx_id = edg.dx_id
 WHERE (dx.primary_dx_yn is null or  dx.primary_dx_yn != 'Y')
     and edg.code not like 'IMO0%'
+	AND dx.contact_date BETWEEN '01/01/2006' AND '02/05/2018'
 UNION
 SELECT coh.pat_id, 
 	   dx.pat_enc_csn_id,
@@ -279,6 +286,7 @@ JOIN clarity.pat_enc_dx dx ON coh.pat_id = dx.pat_id
 JOIN clarity.edg_current_icd10 edg ON dx.dx_id = edg.dx_id
 WHERE (dx.primary_dx_yn is null or  dx.primary_dx_yn != 'Y')
     and edg.code not like 'IMO0%'
+	AND dx.contact_date BETWEEN '01/01/2006' AND '02/05/2018'
 ) adm 
 on (lcd.pat_id = adm.pat_id
   and lcd.pat_enc_csn_id = adm.pat_enc_csn_id
@@ -317,6 +325,7 @@ using
       where hd.PAT_ENC_DATE_REAL is not null
       and hd.dx_id is not null
       and edg.code not like 'IMO0%'
+	  AND trunc(dt.calendar_dt) BETWEEN '01/01/2006' AND '02/05/2018'
   UNION
   select
 		  coh.pat_id,
@@ -331,6 +340,7 @@ using
   where hd.PAT_ENC_DATE_REAL is not null
     and hd.dx_id is not null
     and edg.code not like 'IMO0%'
+	AND trunc(dt.calendar_dt) BETWEEN '01/01/2006' AND '02/05/2018'
   ) adm
 on (lcd.pat_id = adm.pat_id
   and lcd.pat_enc_csn_id = adm.pat_enc_csn_id
@@ -364,32 +374,34 @@ MERGE INTO XDR_Wherry_preg_DX lcd
 using
     (select
         coh.pat_id,
-        coh.pat_enc_csn_id,
+        t.pat_enc_csn_id,
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         9 as icd_type
     from XDR_Wherry_preg_PAT coh
-    JOIN XDR_Wherry_preg_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    JOIN XDR_Wherry_preg_ENC t ON coh.pat_id = t.pat_id
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd9 edg ON hd.dx_id = edg.dx_id
     where t.hosp_admsn_time is not null
       and hd.line = 1
       and edg.code not like 'IMO0%'
+	  AND trunc(t.hosp_admsn_time) BETWEEN '01/01/2006' AND '02/05/2018'
     UNION
     select
         coh.pat_id,
-        coh.pat_enc_csn_id,
+        t.pat_enc_csn_id,
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         10 as icd_type
     from XDR_Wherry_preg_PAT coh
-    JOIN XDR_Wherry_preg_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    JOIN XDR_Wherry_preg_ENC t ON coh.pat_id = t.pat_id
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd10 edg ON hd.dx_id = edg.dx_id
     left join clarity.ZC_DX_POA zdp on hd.final_dx_poa_c = zdp.dx_poa_c
     where t.hosp_admsn_time is not null
       and hd.line = 1
       and edg.code not like 'IMO0%'
+	  AND trunc(t.hosp_admsn_time) BETWEEN '01/01/2006' AND '02/05/2018'
     ) hsp
 on (lcd.pat_id = hsp.pat_id
   and lcd.pat_enc_csn_id = hsp.pat_enc_csn_id
@@ -421,33 +433,35 @@ MERGE INTO XDR_Wherry_preg_DX lcd
 using
     (select
         coh.pat_id,
-        coh.pat_enc_csn_id,
+        t.pat_enc_csn_id,
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         9 as icd_type
     from XDR_Wherry_preg_PAT coh
-    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    JOIN XDR_Wherry_preg_ENC t ON coh.pat_id = t.pat_id
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd9 edg ON hd.dx_id = edg.dx_id
     left join clarity.ZC_DX_POA zdp on hd.final_dx_poa_c = zdp.dx_poa_c
     where t.hosp_admsn_time is not null
       and hd.line > 1
       and edg.code not like 'IMO0%'
+	  AND trunc(t.hosp_admsn_time) BETWEEN '01/01/2006' AND '02/05/2018'
     UNION
     select
         coh.pat_id,
-        coh.pat_enc_csn_id,
+        t.pat_enc_csn_id,
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         10 as icd_type
     from XDR_Wherry_preg_PAT coh
-    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    JOIN XDR_Wherry_preg_ENC t ON coh.pat_id = t.pat_id
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd10 edg ON hd.dx_id = edg.dx_id
     left join clarity.ZC_DX_POA zdp on hd.final_dx_poa_c = zdp.dx_poa_c
     where t.hosp_admsn_time is not null
       and hd.line > 1
       and edg.code not like 'IMO0%'
+	  AND trunc(t.hosp_admsn_time) BETWEEN '01/01/2006' AND '02/05/2018'
     ) hsp
 on (lcd.pat_id = hsp.pat_id
   and lcd.pat_enc_csn_id = hsp.pat_enc_csn_id
@@ -483,12 +497,12 @@ WHERE EXISTS (SELECT hsp.pat_id
             FROM 
             (select
         coh.pat_id,
-        coh.pat_enc_csn_id,
+        t.pat_enc_csn_id,
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         9 as icd_type
     from XDR_Wherry_preg_PAT coh
-    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    JOIN XDR_Wherry_preg_ENC t ON coh.pat_id = t.pat_id
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd9 edg ON hd.dx_id = edg.dx_id
     left join clarity.ZC_DX_POA zdp on hd.final_dx_poa_c = zdp.dx_poa_c
@@ -496,15 +510,16 @@ WHERE EXISTS (SELECT hsp.pat_id
       and hd.line > 1
       and edg.code not like 'IMO0%'
       and zdp.name = 'Yes'
+	  AND trunc(t.hosp_admsn_time) BETWEEN '01/01/2006' AND '02/05/2018'
     UNION
     select
         coh.pat_id,
-        coh.pat_enc_csn_id,
+        t.pat_enc_csn_id,
         trunc(t.hosp_admsn_time) as contact_date,
         edg.code as icd_code,
         10 as icd_type
     from XDR_Wherry_preg_PAT coh
-    JOIN XDR_Wherry_preg_IP_ENC t ON coh.PAT_ENC_CSN_ID = t.PAT_ENC_CSN_ID
+    JOIN XDR_Wherry_preg_ENC t ON coh.pat_id = t.pat_id
     join clarity.hsp_acct_dx_list hd on t.hsp_account_id = hd.hsp_account_id
     JOIN clarity.edg_current_icd10 edg ON hd.dx_id = edg.dx_id
     left join clarity.ZC_DX_POA zdp on hd.final_dx_poa_c = zdp.dx_poa_c
@@ -512,6 +527,7 @@ WHERE EXISTS (SELECT hsp.pat_id
       and hd.line > 1
       and edg.code not like 'IMO0%'
       and zdp.name = 'Yes'
+	  AND trunc(t.hosp_admsn_time) BETWEEN '01/01/2006' AND '02/05/2018'
     ) hsp
             WHERE lcd.pat_id = hsp.pat_id
   and lcd.pat_enc_csn_id = hsp.pat_enc_csn_id
@@ -566,7 +582,7 @@ FROM clarity.hsp_acct_px_list p
       JOIN XDR_WHERRY_preg_ENC t ON p.hsp_account_id = t.hsp_account_id 
       --JOIN XDR_Wherry_preg_PAT   coh on t.PAT_ENC_CSN_ID = coh.PAT_ENC_CSN_ID
       join clarity.ZC_HCD_CODE_SET zhcs on i.REF_BILL_CODE_SET_C = zhcs.CODE_SET_C
-      WHERE p.proc_date >= '01/01/2006';
+      WHERE p.proc_date BETWEEN '01/01/2006' AND '02/05/2018';
 --552,841 rows inserted.(01/18/18)
 COMMIT;
 --Add counts for QA
@@ -594,9 +610,9 @@ SELECT arpb.patient_id 								    AS pat_id
         WHERE --patient_id is not null AND 
           tx_type_c = 1					-----  Charges only
           AND void_date is null
-          AND arpb.service_date >= '01/01/2006'; 
+          AND arpb.service_date BETWEEN '01/01/2006' AND '02/05/2018'; 
 
-
+COMMIT;
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_PRC' AS TABLE_NAME
@@ -615,7 +631,7 @@ SELECT hsp.pat_id
                 ,substr(coalesce(hspt.hcpcs_code,hspt.cpt_code),1,5)    AS px_code
                 ,'CPT-Hospital'                                         AS code_type   
                 ,hspt.PERFORMING_PROV_ID                                AS prov_id
-            FROM  hsp_account       hsp   
+            FROM clarity.hsp_account       hsp   
             JOIN clarity.hsp_transactions           hspt  ON hsp.hsp_account_id = hspt.hsp_account_id
             LEFT JOIN clarity.f_arhb_inactive_tx    fait on hspt.tx_id = fait.tx_id
             join XDR_WHERRY_preg_ENC                enc on hspt.pat_enc_csn_id = enc.pat_enc_csn_id
@@ -623,8 +639,9 @@ SELECT hsp.pat_id
             --join i2b2.lz_clarity_patient pat on hsp.pat_id = pat.pat_id
           where hspt.tx_type_ha_c = 1  
           and (length(hspt.cpt_code) = 5 or hspt.hcpcs_code is not null)
-          and fait.tx_id is null;
-
+          and fait.tx_id is null
+		  AND hspt.service_date BETWEEN '01/01/2006' AND '02/05/2018'; 
+COMMIT;
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_PRC' AS TABLE_NAME
@@ -660,6 +677,8 @@ group by ICD_CODE_SET;
 DROP TABLE xdr_Wherry_preg_flo PURGE;
 CREATE TABLE xdr_Wherry_preg_flo AS 
 SELECT DISTINCT coh.pat_id
+						,coh.study_id
+						,coh.mom_child_mc
                        ,enc.pat_enc_csn_id
                        ,enc.INPATIENT_DATA_ID
                        ,meas.flt_id
@@ -670,7 +689,7 @@ SELECT DISTINCT coh.pat_id
                        ,meas.recorded_time
                        ,meas.meas_value       AS measure_value
           FROM XDR_Wherry_preg_PAT           coh 
-          JOIN XDR_WHERRY_preg_ENC        enc   ON coh.pat_enc_csn_id = enc.pat_enc_csn_id
+          JOIN XDR_WHERRY_preg_ENC        enc   ON coh.pat_id = enc.pat_id
           JOIN clarity.ip_flwsht_rec      rec   ON enc.inpatient_data_id = rec.inpatient_data_id
           JOIN clarity.ip_flwsht_meas     meas  ON rec.fsd_id = meas.fsd_id
           JOIN clarity.ip_flo_gp_data     gpd   ON meas.flo_meas_id = gpd.flo_meas_id
@@ -686,6 +705,8 @@ SELECT DISTINCT coh.pat_id
                                     ,'301070'     --BMI
                                     ,'10'         --Pulse Oximetry (SpO2)
                                     )
+									
+			AND meas.recorded_time BETWEEN '01/01/2006' AND '02/05/2018'; 									
 ;
 
 --Add counts for QA
@@ -703,6 +724,7 @@ DROP TABLE XDR_Wherry_preg_SOC PURGE;
 CREATE TABLE XDR_Wherry_preg_SOC AS
 SELECT DISTINCT coh.pat_id 
                ,coh.study_id
+				,coh.mom_child_mc
                ,soc.pat_enc_csn_id            
                ,soc.pat_enc_date_real
                ,pat.birth_date
@@ -746,8 +768,8 @@ SELECT DISTINCT coh.pat_id
                ,soc.iv_drug_user_yn 
                ,soc.illicit_drug_freq  
                ,soc.illicit_drug_cmt 
-  FROM XDR_Wherry_preg_PAT                              coh
-  JOIN clarity.patient                    pat ON coh.pat_id = pat.pat_id
+  FROM XDR_Wherry_preg_PAT              coh
+  JOIN clarity.patient                  pat ON coh.pat_id = pat.pat_id
   LEFT JOIN clarity.social_hx           soc ON pat.pat_id = soc.pat_id
   LEFT JOIN clarity.social_hx_alc_use   soa ON soc.pat_enc_csn_id = soa.pat_enc_csn_id
   LEFT JOIN clarity.zc_sexually_active  xsa ON soc.sexually_active_c = xsa.sexually_active_c
@@ -774,6 +796,7 @@ DROP TABLE xdr_Wherry_preg_fam PURGE;
 CREATE TABLE xdr_Wherry_preg_fam AS
 SELECT DISTINCT pat.pat_id 
                ,pat.study_id
+				,pat.mom_child_mc
                ,fam.pat_enc_csn_id       
                ,fam.line
                ,fam.medical_hx_c
@@ -800,115 +823,33 @@ COMMIT;
 --------------------------------------------------------------------------------
 DROP TABLE xdr_Wherry_preg_pl purge;
 CREATE TABLE xdr_Wherry_preg_pl AS
---SELECT DISTINCT enc.pat_id
---               ,enc.pat_enc_csn_id
---               ,enc.effective_date_dt          AS encounter_date
---               ,pl.problem_list_id
---               ,pl.hx_problem_id               AS dx_id
---               ,pl.hx_description              AS prob_desc 
---               ,pl.hx_date_noted               AS noted_date
---               ,pl.hx_date_of_entry            AS update_date
---               ,pl.hx_date_resolved            AS resolved_date
---               ,zps.name                       AS problem_status
---               --,pl.hx_comment                  AS problem_cmt     
---               ,zhp.name                       AS priority
---               ,pl.hx_is_hosp_yn               AS hospital_problem
---               ,pl.hx_principal_yn             AS principal_yn
---               ,pl.hx_chronic_yn               AS chronic_yn             
---               --,pl.PROBLEM_TYPE_C              --1-MEDICAL   2-NURSING   3-Hospitalization       (in progress)           
---               
---               --ICD9 CODES
---               --,'9'                            AS icd_type
---               --,cin9.code                      AS icd_code
---               --,icd9.ICD_DESC                  AS icd_desc
---  
---               --ICD10 CODES
---               --,'10'                           AS icd_type
---               --,cin10.code                     AS ICD_code
---               --,icd10.ICD_DESC                 AS ICD_DESC
---               --,DSC10.DESCRIPTION              AS ICD10_Diagnosis_desc               
---
---               ,ser.prov_id                           
---               ,ser.prov_type          
---               ,prv.primary_specialty         
---  FROM xdr_Wherry_preg_enc                      enc
---  JOIN clarity.problem_list_hx            pl    ON enc.pat_enc_csn_id = pl.hx_problem_ept_csn
---  LEFT JOIN clarity.clarity_ser           ser   ON pl.hx_entry_user_id = ser.user_id
---  LEFT JOIN clarity.v_cube_d_provider     prv   ON ser.prov_id = prv.provider_id
---  LEFT JOIN clarity.zc_problem_status     zps   ON pl.hx_status_c = zps.problem_status_c
---  LEFT JOIN clarity.zc_hx_priority        zhp   ON pl.hx_priority_c = zhp.hx_priority_c
-  
-  --ICD9 CODES
-  --LEFT JOIN edg_current_icd9              cin9  ON pl.DX_ID = cin9.dx_id AND cin9.line = 1
-  --LEFT JOIN i2b2.lz_dx_px_lookup          icd9   ON cin9.code = icd9.code
-  --                                              AND icd9.code_type = 'DX' 
-  --                                              AND icd9.icd_type = 9
-  
-  --ICD10 CODES
-  --LEFT JOIN edg_current_icd10             cin10 ON pl.DX_ID = cin10.dx_id AND cin10.line = 1
-  --LEFT JOIN i2b2.lz_dx_px_lookup          icd10 ON cin10.code = icd10.code
-  --                                              AND icd10.code_type = 'DX' 
-  --                                              AND icd10.icd_type = 10
---UNION
 SELECT DISTINCT enc.pat_id
                ,enc.pat_enc_csn_id
                ,enc.effective_date_dt as encounter_date
                ,pl.problem_list_id
                ,pl.dx_id
-               ,pl.description                AS prob_desc 
+               --,pl.description                AS prob_desc 
                ,pl.noted_date                 AS noted_date
                ,pl.date_of_entry              AS update_date
                ,pl.resolved_date              AS resolved_date
                ,zps.name                      AS problem_status        
                --,pl.problem_cmt                AS problem_cmt     
                ,zhp.name                      AS priority
-               ,pl.hospital_pl_yn             AS hospital_problem
+               --,pl.hospital_pl_yn             AS hospital_problem
                ,PL.PRINCIPAL_PL_YN            AS principal_yn
                --,pl.PROBLEM_TYPE_C             --1-MEDICAL   2-NURSING   3-Hospitalization   (in progress)
                ,pl.chronic_yn                 AS chronic_yn
-               
-               --ICD9 CODES
-               --,'9'                           AS icd_type
-               --,cin9.code                     AS ICD_code
-               --,icd9.ICD_DESC                 AS ICD_DESC
-               --,DSC9.DESCRIPTION              AS ICD9_Diagnosis_desc
-               
-               --ICD10 CODES
-               --,'10'                          AS icd_type
-               --,cin10.code                    AS ICD_code
-               --,icd10.ICD_DESC                AS ICD_DESC
-               --,DSC10.DESCRIPTION             AS ICD10_Diagnosis_desc
-                              
-               ,ser.prov_id                           
-               ,ser.prov_type          
-               ,prv.primary_specialty      
-  FROM xdr_Wherry_preg_enc                        enc
+               --,ser.prov_id                           
+               --,ser.prov_type          
+               --,prv.primary_specialty      
+  FROM xdr_Wherry_preg_enc                  enc
   JOIN clarity.problem_list                 pl    ON enc.pat_enc_csn_id = pl.problem_ept_csn AND rec_archived_yn = 'N'
   LEFT JOIN clarity.clarity_ser             ser   ON pl.entry_user_id = ser.user_id
   LEFT JOIN clarity.v_cube_d_provider       prv   ON ser.prov_id = prv.provider_id
   LEFT JOIN clarity.zc_problem_status       zps   ON pl.problem_status_c = zps.problem_status_c
   LEFT JOIN clarity.zc_hx_priority          zhp   ON pl.priority_c = zhp.hx_priority_c
-  
-  --ICD9 CODES
-  --LEFT JOIN edg_current_icd9                cin9  ON pl.dx_id = cin9.dx_id AND cin9.line = 1
-  --LEFT JOIN i2b2.lz_dx_px_lookup            icd9  ON cin9.code = icd9.code
-  --                                                AND icd9.code_type = 'DX' 
-  --                                                AND icd9.icd_type = 9
- 
-  --ICD10 CODES
-  --LEFT JOIN edg_current_icd10               cin10 ON pl.dx_id = cin10.dx_id AND cin10.line = 1
-  --LEFT JOIN i2b2.lz_dx_px_lookup            icd10 ON cin10.code = icd10.code
-  --                                                AND icd10.code_type = 'DX' 
-  --                                                AND icd10.icd_type = 10
-;
---Add counts for QA
-INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
-SELECT 'xdr_Wherry_preg_pl' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	-- 30855
-	,COUNT(*) AS TOTAL_COUNT 		--387855
-FROM xdr_Wherry_preg_pl;
-COMMIT;
-
+  WHERE
+		pl.noted_date BETWEEN '01/01/2006' AND '02/05/2018'; 
 
 
 
@@ -917,13 +858,17 @@ COMMIT;
 --------------------------------------------------------------------------------
 DROP TABLE xdr_Wherry_preg_pldx PURGE;
 CREATE TABLE xdr_Wherry_preg_pldx AS
-SELECT DISTINCT PAT_ID,
-              PAT_ENC_CSN_ID,
+SELECT DISTINCT pl.PAT_ID,
+              pl.PAT_ENC_CSN_ID,
               'PROBLEM_LIST'           AS diagnosis_source, 
               --DX_ID,								commented out on 6/9/17 to avoid confusion
-              PROBLEM_LIST_ID,
-              NOTED_DATE               AS diagnosis_date,
-              PRINCIPAL_YN             AS primary_dx_yn, 
+              pl.PROBLEM_LIST_ID,
+              pl.NOTED_DATE               AS diagnosis_date,
+              pl.PRINCIPAL_YN             AS primary_dx_yn, 
+              pl.PRIORITY,
+              pl.RESOLVED_DATE,
+              pl.update_date,
+              pl.problem_status,
               --NULL                     AS SOURCE,
               --ICD CODES
               case when NOTED_DATE <= '01/01/2015' then icd9.icd_type else icd10.icd_type end icd_type,
@@ -971,10 +916,12 @@ FROM (SELECT DISTINCT prov.prov_id               AS provider_id,
                     ELSE NULL
                 END UC_provider
 FROM 
-    (--All provider from encounters + procedures
+    (--All provider from encounters + procedures + patient PCP
     select visit_prov_id as prov_id from xdr_Wherry_preg_enc
     UNION
     select PROC_PERF_PROV_ID as prov_id from xdr_Wherry_preg_prc
+	UNION
+    select CUR_PCP_PROV_ID as prov_id from XDR_WHERRY_preg_pat
     ) prov
 LEFT JOIN clarity.v_cube_d_provider       prv   ON prov.prov_id = prv.provider_id
 --check for active providers
@@ -988,7 +935,7 @@ ORDER BY  dbms_random.value
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'xdr_Wherry_preg_prov' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	
+	,NULL AS PAT_COUNT	
 	,COUNT(*) AS TOTAL_COUNT 		
 FROM xdr_Wherry_preg_prov;
 COMMIT;
