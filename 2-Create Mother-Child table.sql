@@ -69,6 +69,7 @@ SELECT DISTINCT pat.pat_id
 			,pat.HOME_PHONE
 			,pat.EMAIL_ADDRESS
 			,pat.BIRTH_DATE
+			,pat.sex
 FROM clarity.patient pat
 WHERE birth_date BETWEEN   '01/01/2006' AND '03/01/2013';
 
@@ -170,6 +171,8 @@ SELECT DISTINCT enc.MOM_PAT_ID
 ,pat.zip
 ,pat.home_phone
 ,pat.email_address
+,pat.birth_date
+,pat.sex
 FROM XDR_WHERRY_preg_enc_dob		enc
 LEFT JOIN clarity.patient			pat on enc.MOM_PAT_ID = pat.pat_id;
 
@@ -199,6 +202,8 @@ SELECT DISTINCT enc.child_pat_id
 ,pat.zip
 ,pat.home_phone
 ,pat.email_address
+,pat.birth_date
+,pat.sex
 FROM XDR_WHERRY_preg_enc_dob		enc
 LEFT JOIN XDR_WHERRY_preg_childall			pat on enc.child_pat_id = pat.pat_id;
 
@@ -469,18 +474,18 @@ order by c desc;
 -- *******************************************************************************************************
 DROP TABLE XDR_WHERRY_preg_matching purge;
 CREATE TABLE XDR_WHERRY_preg_matching AS
-SELECT DISTINCT enc.pat_id as mom_pat_id
+SELECT DISTINCT enc.mom_pat_id
 				,enc.child_pat_id
 				,enc.effective_date_dt
 				,enc.hosp_admsn_time 
 				,enc.hosp_dischrg_time
 				,enc.CHILD_BIRTH_DATE
 				
-				,CASE WHEN (	--SOUNDEX ADDRESS MATCH
+/*				,CASE WHEN (	--SOUNDEX ADDRESS MATCH
 							SOUNDEX(mom.add_line_1) = SOUNDEX(cld.add_line_1)
 							AND mom.ADDRESS_YN = 'y' 
 							AND cld.ADDRESS_YN = 'y'
-							) THEN 1 ELSE 0 END SIMILAR_ADDRESS
+							) THEN 1 ELSE 0 END SIMILAR_ADDRESS*/
 				,CASE WHEN ( 	--EXACT ADDRESS MATCH
                             mom.add_line_1 = cld.add_line_1
                             AND mom.ADDRESS_YN = 'y' 
@@ -496,21 +501,21 @@ SELECT DISTINCT enc.pat_id as mom_pat_id
                             AND mom.email_address is not null
                             AND cld.email_address is not null
                             ) THEN 1 ELSE 0 END EMAIL_MATCH
-				,CASE WHEN enc.pat_id = prx.proxy_pat_id THEN 1 ELSE 0 END PROXY_MATCH
+				,CASE WHEN enc.mom_pat_id = prx.proxy_pat_id THEN 1 ELSE 0 END PROXY_MATCH
 FROM XDR_WHERRY_preg_enc_dob_dist		enc
-LEFT JOIN XDR_WHERRY_mom_matching		mom on enc.pat_id = mom.mom_pat_id
+LEFT JOIN XDR_WHERRY_mom_matching		mom on enc.mom_pat_id = mom.mom_pat_id
 LEFT JOIN XDR_WHERRY_child_matching		cld on enc.child_pat_id = cld.child_pat_id
 LEFT JOIN clarity.PAT_MYC_PRXY_HX		prx ON enc.child_pat_id = prx.pat_id
 WHERE
-    	enc.pat_id <> enc.child_pat_id      --sometimes, the child gets assigned a preganncy dx code and since it was also at the hospital, it can get tagged to herself
+    	enc.mom_pat_id <> enc.child_pat_id      --sometimes, the child gets assigned a preganncy dx code and since it was also at the hospital, it can get tagged to herself
          and
         (
 		--SOUNDEX ADDRESS MATCH
-			( 
+			/*( 
 			SOUNDEX(mom.add_line_1) = SOUNDEX(cld.add_line_1)
 			AND mom.ADDRESS_YN = 'y' 
             AND cld.ADDRESS_YN = 'y'
-			)
+			)*/
         --EXACT ADDRESS MATCH
 		OR ( 
 			mom.add_line_1 = cld.add_line_1
@@ -530,11 +535,52 @@ WHERE
             AND cld.email_address is not null
 			)
 		--mother is PROXY for the child
-		OR (enc.pat_id = prx.proxy_pat_id)
+		OR (enc.mom_pat_id = prx.proxy_pat_id)
 		);
-		
-SELECT count(*) FROM XDR_WHERRY_preg_matching ;     --27524
-SELECT COUNT(*) COUNT_TOTAL, count(distinct mom_pat_id) AS COUNT_MOM, count(distinct child_pat_id) AS COUNT_CHILD  FROM XDR_WHERRY_preg_matching;      --27524	17061	20234
+
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_WHERRY_preg_matching' AS TABLE_NAME
+	,COUNT(distinct mom_pat_id) AS PAT_COUNT	--
+	,COUNT(*) AS TOTAL_COUNT 					--
+FROM XDR_WHERRY_preg_matching;
+COMMIT;
+
+
+--------------------------------------------------------------------------------------------------------
+--	2.7.1	Add similar address match
+--------------------------------------------------------------------------------------------------------
+ALTER TABLE XDR_WHERRY_preg_matching ADD SIMILAR_ADDRESS;
+
+MERGE INTO XDR_WHERRY_preg_matching pat
+using
+  (SELECT DISTINCT enc.mom_pat_id
+				,enc.child_pat_id
+				,enc.effective_date_dt
+				,enc.hosp_admsn_time 
+				,enc.hosp_dischrg_time
+				,enc.CHILD_BIRTH_DATE
+				,1 AS SIMILAR_ADDRESS
+/*				,CASE WHEN (	--SOUNDEX ADDRESS MATCH
+							SOUNDEX(mom.add_line_1) = SOUNDEX(cld.add_line_1)
+							AND mom.ADDRESS_YN = 'y' 
+							AND cld.ADDRESS_YN = 'y'
+							) THEN 1 ELSE 0 END SIMILAR_ADDRESS*/
+FROM XDR_WHERRY_preg_matching			mat
+JOIN XDR_WHERRY_preg_enc_dob_dist		enc ON mat.mom_pat_id = enc.mom_pat_id AND mat.child_pat_id = enc.child_pat_id
+LEFT JOIN XDR_WHERRY_mom_matching		mom on enc.mom_pat_id = mom.mom_pat_id
+LEFT JOIN XDR_WHERRY_child_matching		cld on enc.child_pat_id = cld.child_pat_id
+LEFT JOIN clarity.PAT_MYC_PRXY_HX		prx ON enc.child_pat_id = prx.pat_id
+WHERE 
+	SOUNDEX(mom.add_line_1) = SOUNDEX(cld.add_line_1)
+		AND mom.ADDRESS_YN = 'y' 
+        AND cld.ADDRESS_YN = 'y'
+  ) r
+  on (pat.mom_pat_id = r.mom_pat_id
+	AND pat.child_pat_id = r.child_pat_id)
+  when matched then
+      update set SIMILAR_ADDRESS = r.SIMILAR_ADDRESS;
+--23,843 rows merged.      
 
 
 
@@ -542,42 +588,46 @@ SELECT COUNT(*) COUNT_TOTAL, count(distinct mom_pat_id) AS COUNT_MOM, count(dist
 -- *******************************************************************************************************
 -- STEP 2.8
 --   		Create final matching table after removing some of the noise and duplication 
---				* Select distinct matches (this is done here to avoid running a DISTINCT on Step ___ that could affect performance)
+--				* Select distinct matches (this is done here to avoid running a DISTINCT on Step 2.7 that could affect performance)
 --				* Sometimes children may received a pregnancy diagnoses that could set them up to be selected as potential mothers
---				* Remove children matched to two different mothers
+--				* Remove children matched to two different mothers (the low number of cases doesn't justify the effort of the manual review)
 -- *******************************************************************************************************
 
 	--------------------------------------------------------------------------------------------------------
-	--	Step 2.8.1: Select distinct matches (this is done here to avoid running a DISTINCT on Step ___ that could affect performance)
+	--	Step 2.8.1: Select distinct matches (this is done here to avoid running a DISTINCT on Step 2.7 that could affect performance)
 	--				Sometimes children may received a pregnancy diagnoses that could set them up to be selected as potential mothers
 	--------------------------------------------------------------------------------------------------------
 DROP TABLE XDR_WHERRY_preg_matching_FINAL PURGE;
 CREATE TABLE XDR_WHERRY_preg_matching_FINAL AS
-SELECT DISTINCT 
-ORIG.PROXY_MATCH
-,ORIG.PHONE_MATCH
-,ORIG.MOM_PAT_ID
-,ORIG.EMAIL_MATCH
---,ORIG.EFFECTIVE_DATE_DT
-,ORIG.CHILD_PAT_ID
-,ORIG.CHILD_BIRTH_DATE
-,ORIG.ADDRESS_MATCH
-,MOM.ZIP AS MOM_ZIP
-,MOM.PHONE_YN AS MOM_PHONE_YN
-,MOM.HOME_PHONE AS MOM_HOME_PHONE
-,MOM.EMAIL_ADDRESS AS MOM_EMAIL_ADDRESS
-,MOM.CITY AS MOM_CITY
-,MOM.ADD_LINE_1 AS MOM_ADD_LINE_1
-,MOM.ADDRESS_YN AS MOM_ADDRESS_YN
-,PM.PAT_NAME AS MOM_NAME
-,CLD.ZIP AS CHILD_ZIP
-,CLD.PHONE_YN AS CHILD_PHONE_YN
-,CLD.HOME_PHONE AS CHILD_HOME_PHONE
-,CLD.EMAIL_ADDRESS AS CHILD_EMAIL_ADDRESS
-,CLD.CITY AS CHILD_CITY
-,CLD.ADD_LINE_1 AS CHILD_ADD_LINE_1
-,CLD.ADDRESS_YN AS CHILD_ADDRESS_YN
-,CM.PAT_NAME AS CHILD_NAME
+SELECT DISTINCT ORIG.MOM_PAT_ID
+			,ORIG.CHILD_PAT_ID
+			,ORIG.EMAIL_MATCH
+			,ORIG.PROXY_MATCH
+			,ORIG.PHONE_MATCH
+			,ORIG.ADDRESS_MATCH
+			,ORIG.SIMILAR_ADDRESS
+			--,ORIG.EFFECTIVE_DATE_DT
+			,MOM.ZIP 			AS MOM_ZIP
+			,MOM.PHONE_YN 		AS MOM_PHONE_YN
+			,MOM.HOME_PHONE 	AS MOM_HOME_PHONE
+			,MOM.EMAIL_ADDRESS 	AS MOM_EMAIL_ADDRESS
+			,MOM.CITY 			AS MOM_CITY
+			,MOM.ADD_LINE_1 	AS MOM_ADD_LINE_1
+			,MOM.ADDRESS_YN 	AS MOM_ADDRESS_YN
+			,MOM.BIRTH_DATE		AS MOM_BIRTH_DATE
+			,MOM.SEX            as MOM_SEX
+			--,PM.PAT_NAME AS MOM_NAME
+			,CLD.ZIP 			AS CHILD_ZIP
+			,CLD.PHONE_YN 		AS CHILD_PHONE_YN
+			,CLD.HOME_PHONE 	AS CHILD_HOME_PHONE
+			,CLD.EMAIL_ADDRESS 	AS CHILD_EMAIL_ADDRESS
+			,CLD.CITY 			AS CHILD_CITY
+			,CLD.ADD_LINE_1 	AS CHILD_ADD_LINE_1
+			,CLD.ADDRESS_YN 	AS CHILD_ADDRESS_YN
+			,ORIG.CHILD_BIRTH_DATE
+			--,CLD.BIRTH_DATE		AS CHILD_BIRTH_DATE
+			,CLD.SEX            AS CHILD_SEX
+			--,CM.PAT_NAME AS CHILD_NAME
 FROM XDR_WHERRY_preg_matching       ORIG
 LEFT JOIN XDR_WHERRY_mom_matching		mom on orig.mom_pat_id = mom.mom_pat_id
 left join clarity.patient               pm on mom.mom_pat_id = pm.pat_id
@@ -586,10 +636,14 @@ left join clarity.patient               cm on cld.child_pat_id = cm.pat_id
 WHERE
 	ROUND(MONTHS_BETWEEN(ORIG.EFFECTIVE_DATE_DT,pm.birth_date)/12) > 1;
  
- 
-SELECT COUNT(*) COUNT_TOTAL, count(distinct mom_pat_id) AS COUNT_MOM, count(distinct child_pat_id) AS COUNT_CHILD  FROM XDR_WHERRY_preg_matching_FINAL;      --20720	17037	20210     27524	17061	20234 
- 
- 
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_WHERRY_preg_matching_FINAL' AS TABLE_NAME
+	,COUNT(distinct mom_pat_id) AS PAT_COUNT	--
+	,COUNT(*) AS TOTAL_COUNT 					--
+FROM XDR_WHERRY_preg_matching_FINAL;
+COMMIT;
+
 SELECT * FROM  XDR_WHERRY_preg_matching_FINAL;
 
 	--------------------------------------------------------------------------------------------------------
@@ -609,7 +663,15 @@ where
 	x.mom_count > 1
 order by orig.CHILD_PAT_ID, orig.MOM_PAT_ID;
 
-select count(*) from XDR_WHERRY_preg_matching_ex;
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_WHERRY_preg_matching_ex' AS TABLE_NAME
+	,COUNT(distinct CHILD_PAT_ID) AS PAT_COUNT	--
+	,COUNT(*) AS TOTAL_COUNT 					--
+FROM XDR_WHERRY_preg_matching_ex;
+COMMIT;
+
+
 
 delete from XDR_WHERRY_preg_matching_final
 where CHILD_PAT_ID in (
@@ -619,56 +681,58 @@ where CHILD_PAT_ID in (
 
 commit;
 
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'XDR_WHERRY_preg_matching_final' AS TABLE_NAME
+	,COUNT(distinct MOM_PAT_ID) AS PAT_COUNT	--
+	,COUNT(*) AS TOTAL_COUNT 					--
+FROM XDR_WHERRY_preg_matching_final;
+COMMIT;
 
-SELECT COUNT(*) COUNT_TOTAL, count(distinct mom_pat_id) AS COUNT_MOM, count(distinct child_pat_id) AS COUNT_CHILD  FROM XDR_WHERRY_preg_matching_FINAL;      --20720	17037	20210     27524	17061	20234 
 
 -- *******************************************************************************************************
 -- STEP 2.9
 --   		insert final 2006-2013 mother-child records into xdr_wherry_all_mom_child (pending) 2/2/18
 -- *******************************************************************************************************
---Add flags created duing ,atching process
+--Add flags created during ,atching process
 ALTER TABLE xdr_wherry_all_mom_child ADD PROXY_MATCH VARCHAR(2);
-ALTER TABLE  xdr_wherry_all_mom_child ADD ADDRESS_MATCH VARCHAR(2);
+ALTER TABLE xdr_wherry_all_mom_child ADD ADDRESS_MATCH VARCHAR(2);
 ALTER TABLE xdr_wherry_all_mom_child ADD PHONE_MATCH VARCHAR(2);
 ALTER TABLE xdr_wherry_all_mom_child ADD EMAIL_MATCH VARCHAR(2);
 ALTER TABLE xdr_wherry_all_mom_child ADD SIMILAR_ADDRESS VARCHAR(2);
 
 --insert records 
-INSERT INTO xdr_wherry_all_mom_child (NB_pat_id,nb_dob,nb_rank,nb_sex,nb_zip,mom_pat_id,mom_dob
+INSERT INTO xdr_wherry_all_mom_child (child_pat_id,child_dob,child_rank,child_sex,child_zip,mom_pat_id,mom_dob,number_of_babies,PROXY_MATCH,ADDRESS_MATCH,PHONE_MATCH,EMAIL_MATCH,SIMILAR_ADDRESS
 SELECT DISTINCT CHILD_PAT_ID
 				,CHILD_BIRTH_DATE
-				,NULL nb_rank
-				,NULL nb_sex
+				,9999999 	AS child_rank
+				,CHILD_SEX
 				,CHILD_ZIP
 				,mom_pat_id
-				,NULL mom_dob
-				,NULL number_of_babies
+				,MOM_BIRTH_DATE
+				,999999 number_of_babies
+				,PROXY_MATCH
+				,ADDRESS_MATCH
+				,PHONE_MATCH
+				,EMAIL_MATCH
+				,SIMILAR_ADDRESS
 FROM XDR_WHERRY_preg_matching_final;
+--12,644 rows inserted.
 COMMIT;
-SELECT COUNT(*) TOT_COUNT, COUNT(DISTINCT MOM_PAT_ID) AS MOM_COUNT, COUNT(DISTINCT NB_PAT_ID) AS NB_COUNT FROM xdr_wherry_all_mom_child;
 
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'xdr_wherry_all_mom_child' AS TABLE_NAME
+	,COUNT(distinct CHILD_PAT_ID) AS PAT_COUNT	--
+	,COUNT(*) AS TOTAL_COUNT 					--
+FROM xdr_wherry_all_mom_child;
+COMMIT;
 
-
-
-nb.pat_id                                               AS nb_pat_id
-               --,nbp.pat_mrn_id                                          AS nb_mrn
-               ,nbp.birth_date                                          AS nb_dob
-               --,mom.child_enc_csn_id                                    AS nb_csn
-               ,mom.line                                                AS nb_rank
-               ,xsx.name                                                AS nb_sex
-               ,nbp.ped_gest_age                                        AS nb_age
-               ,nbp.zip                                                 AS nb_zip
-               ,mom.pat_id                                              AS mom_pat_id
-               --,mp.pat_mrn_id                                           AS mom_mrn
-               ,mp.birth_date                                           AS mom_dob
-               --,trunc(months_between(nbp.birth_date, mp.birth_date)/12) AS mom_age_at_delivery
-               --,mom.pat_enc_csn_id                                      AS mom_csn
-               ,MAX(line) OVER (PARTITION BY mom.pat_enc_csn_id)        AS number_of_babies
 
 
 
 			   
---QA queries and descriptive outomes
+--QA queries and descriptive outcomes
 select matching_vector,count(*) from (
 SELECT distinct x.ADDRESS_MATCH ||  x.PHONE_MATCH ||  x.EMAIL_MATCH || x.PROXY_MATCH as matching_vector
 ,x.MOM_PAT_ID
