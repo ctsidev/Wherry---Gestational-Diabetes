@@ -22,8 +22,11 @@ This project uses diagnosis cutoffs for gestational diabetes to examine the shor
     
 ##### SELECTION CRITERIA
 Two de-identified data extractions: one for the mother population and one for the child population:
-1 All available records for any female with a pregnancy-related diagnosis code (ICD-9: 630-679, V22-V23; ICD-10: Z34, Z3A, Z37, O categories) at any time during the period 1/2006 to the present
-2 All available records for any children who were the result of the pregnancies of the women identified under (1) at any time during the period 1/2006 to the present 
+
+1. All available records for any female with a pregnancy-related diagnosis code (ICD-9: 630-679, V22-V23; ICD-10: Z34, Z3A, Z37, O categories) at any time during the period 1/2006 to the present.
+1. All available records for any children who were the result of the pregnancies of the women identified under (1) at any time during the period 1/2006 to the present.
+	1. For the period 03/01/2013 - 02/05/2018, we can use the table hsp_ld_mom_child
+	1. For the period 01/01/2006 - 03/01/2013, we need to find mothers from (1) with a hospital encounter and a child bron during that stay. Then we will use contant infomation (address, home phone number, email address, proxy pat_id) to find potential matches. It inclues a data cleaning step
 
 ##### ICD-9 codes
 * 630-679, V22-V23 
@@ -34,17 +37,10 @@ Two de-identified data extractions: one for the mother population and one for th
 ### PI Element selection
 The code allows to create certain counts for PI to choose from in order to reduce the amount of data pulled and produce a more efficient and accurate dataset.
 
-The M.O. is always the same, pull the elements for the cohort, create a set of counts to send to PI, apply his selection 	by loading into a driver table and using it on a join with the previous table.
-The elements where this formula is used in this case are: 
-* Labs
-* Meds
-* Allergies
-
 *LIST OF DATA ELEMENTS FOR EXTRACTION*
 * Demographics
 * Encounter
 * Diagnoses Encounter
-* Problemlist
 * Diagnoses Problem List
 * Procedures
 * Medications
@@ -55,6 +51,11 @@ The elements where this formula is used in this case are:
 * Allergy
 
 Additionally, there are two reference tables to be used in order to add the proper context to the data pull, one for diagnoses pull and one for the race field. The data for these tables is included in the repository.
+*******************************************************************************************************
+### SITE SPECIFIC CODES:
+*******************************************************************************************************
+The code was originally written to run on the UCLA EPIC implementation and certain reference codes might vary from site to site. Adecuate commetns are included in the script to check for these differences and improve the output quality.
+
 *******************************************************************************************************
 ### Study_id
 *******************************************************************************************************
