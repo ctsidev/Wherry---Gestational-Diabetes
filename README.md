@@ -56,6 +56,9 @@ Additionally, there are two reference tables to be used in order to add the prop
 *******************************************************************************************************
 The code was originally written to run on the UCLA EPIC implementation and certain reference codes might vary from site to site. Adecuate commetns are included in the script to check for these differences and improve the output quality.
 
+The encounter data set includes the PCORNET visit type. This repository uses a UCLA develoepd table to match encounters to 
+their PCORNET visit type equivalent. Other sites will have to leverage their own resources to calculate the visit_type.
+
 *******************************************************************************************************
 ### Study_id
 *******************************************************************************************************
