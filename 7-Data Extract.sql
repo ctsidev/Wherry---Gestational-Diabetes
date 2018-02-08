@@ -198,6 +198,7 @@ ORDER BY study_id, encounter_id;
 
 
 
+
 --------------------------------------------------------------------------------
 -- STEP 7.7: Flowsheets Pull 
 --------------------------------------------------------------------------------running
@@ -220,7 +221,7 @@ JOIN XDR_WHERRY_preg_pat          pat  on flo.pat_id = pat.pat_id
 JOIN XDR_WHERRY_preg_ENCKEY       enck on flo.pat_enc_csn_id = enck.pat_enc_csn_id
 --LEFT JOIN xdr_wherry_all_mom_child 			lnk  on flo.pat_id = lnk.nb_pat_id AND pat.mom_child_mc = 'C'
 LEFT JOIN xdr_WHERRY_preg_pat 	    		mom  on pat.mom_pat_id = mom.pat_id AND pat.pat_id = 'C' AND mom.mom_child_mc = 'M'
-ORDER BY pat.study_id,enck.encounter_id,year_rec_da;
+ORDER BY flo.study_id,enck.encounter_id,rec_dt_days_first_enc;
 
 --------------------------------------------------------------------------------
 -- STEP 7.8: Lab Pull 
