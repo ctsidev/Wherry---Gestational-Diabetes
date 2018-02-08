@@ -32,8 +32,8 @@ CREATE TABLE xdr_wherry_prg_pregall AS
     JOIN clarity.edg_current_icd9           edg ON dx.dx_id = edg.dx_id
     WHERE
         mom.sex_c = 1       --female
-        AND (REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
-        OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')        --ICD-9: V22-V23 (includes all subcategories)
+        AND (REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       	--ICD-9: 630-679 (includes all subcategories)
+        OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')        		--ICD-9: V22-V23 (includes all subcategories)
         )
         AND dx.CONTACT_DATE BETWEEN '01/01/2006' AND '02/05/2018'
 UNION
@@ -46,8 +46,8 @@ UNION
     JOIN clarity.edg_current_icd10           edg ON dx.dx_id = edg.dx_id
     WHERE
         mom.sex_c = 1       --female
-        AND (REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')         --ICD-10: Z34, Z3A, Z37, O categories
-        OR REGEXP_LIKE(edg.code,'^O+')              --ICD-10: Z34, Z3A, Z37, O categories
+        AND (REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')         	--ICD-10: Z34, Z3A, Z37, O categories
+        OR REGEXP_LIKE(edg.code,'^O+')              		--ICD-10: Z34, Z3A, Z37, O categories
         )
         AND dx.CONTACT_DATE BETWEEN '01/01/2006' AND '02/05/2018'
 UNION
@@ -61,8 +61,8 @@ UNION
     JOIN clarity.edg_current_icd9           edg ON dx.dx_id = edg.dx_id
     WHERE
         mom.sex_c = 1       --female
-        AND (REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
-        OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')       --ICD-9: V22-V23 (includes all subcategories)
+        AND (REGEXP_LIKE(edg.CODE,'^6[3-7][0-9]+')       	--ICD-9: 630-679 (includes all subcategories)
+        OR REGEXP_LIKE(EDG.CODE,'^V2(2|3)+')       			--ICD-9: V22-V23 (includes all subcategories)
         )
         AND enc.CONTACT_DATE BETWEEN '01/01/2006' AND '02/05/2018'
 UNION
@@ -76,8 +76,8 @@ UNION
     JOIN clarity.edg_current_icd10          edg ON dx.dx_id = edg.dx_id
     WHERE
         mom.sex_c = 1       --female
-        AND (REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')       --ICD-10: Z34, Z3A, Z37, O categories
-        OR REGEXP_LIKE(edg.code,'^O+')       --ICD-10: Z34, Z3A, Z37, O categories
+        AND (REGEXP_LIKE(edg.code,'^Z3(4|A|7)+')       	--ICD-10: Z34, Z3A, Z37, O categories
+        OR REGEXP_LIKE(edg.code,'^O+')       			--ICD-10: Z34, Z3A, Z37, O categories
         )
         AND enc.CONTACT_DATE BETWEEN '01/01/2006' AND '02/05/2018'
 --legacy data
@@ -88,15 +88,15 @@ UNION
         ,EFFECTIVE_DATE
 	from i2b2.int_dx
 	WHERE (REGEXP_LIKE(ICD9_CODE,'^6[3-7][0-9]+')       --ICD-9: 630-679 (includes all subcategories)
-        OR REGEXP_LIKE(ICD9_CODE,'^V2(2|3)+')        --ICD-9: V22-V23 (includes all subcategories)
+        OR REGEXP_LIKE(ICD9_CODE,'^V2(2|3)+')        	--ICD-9: V22-V23 (includes all subcategories)
         )
         AND EFFECTIVE_DATE BETWEEN '01/01/2006' AND '02/05/2018'
 ;
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'xdr_wherry_prg_pregall' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--    77298(2/5/18)
-	,COUNT(*) AS TOTAL_COUNT 		--1783361(2/5/18)
+	,COUNT(distinct pat_id) AS PAT_COUNT
+	,COUNT(*) AS TOTAL_COUNT
 FROM xdr_wherry_prg_pregall;
 COMMIT;
 
@@ -113,6 +113,21 @@ join i2b2.lz_dx_px_lookup lk on dx.icd_code = lk.code
 -- *******************************************************************************************************
 -- STEP 1.3
 --   Pull all encounter for Mothers
+-----------------------------------------------------------------------------------------------------------
+--      Exclude the following encounter types enc_type_c not in (2532, 2534, 40, 2514, 2505, 2506, 2512, 2507)
+--      In your environment, these codes might differ. I have listed the details below for your convenience.
+--          2505	Erroneous Encounter
+--          2506	Erroneous Telephone Encounter
+--          2507	Scanned Document
+--          2512	Transcribed Document
+--          2514	Other eSource Document
+--          2532	SMBP Historical Scanned Document
+--          2534	Scanned Document No Visit
+--            40	Wait List 
+--		look at the details of codes being excluded from encounters pull        
+--		select * 
+--		from clarity.ZC_DISP_ENC_TYPE enctype
+--		WHERE enctype.disp_enc_type_c  in (2532, 2534, 40, 2514, 2505, 2506, 2512, 2507);
 -- *******************************************************************************************************
 DROP TABLE XDR_WHERRY_preg_ENC PURGE;
 CREATE TABLE XDR_WHERRY_preg_ENC AS
@@ -155,15 +170,6 @@ SELECT e.pat_id,
 
 ;
 
-/* Remove from final version
-select count(*) , count(distinct pat_id)  from XDR_WHERRY_preg_ENC_pregall;  --1064076	69895
---There are 44,921 potential mothers with a hospital encounter in this period.
-select count(*) , count(distinct enc.pat_id)  
-from XDR_WHERRY_preg_ENC_pregall enc
-join (select distinct pat_id  from XDR_WHERRY_PRG_PREGALL where CONTACT_DATE BETWEEN '01/01/2006' AND '03/01/2013') dx on enc.pat_id = dx.pat_id
-where enc.effective_date_dt BETWEEN '01/01/2006' AND '03/01/2013'; --767055			44921
-*/
-
 --These indexes shall improve performance on future steps.
 CREATE INDEX XDR_WHERRY_preg_ENC_preg_DTIX ON XDR_WHERRY_preg_ENC(hosp_admsn_time);
 CREATE INDEX XDR_WHERRY_preg_ENC_preg_DTIX ON XDR_WHERRY_preg_ENC(hosp_dischrg_time);
@@ -174,8 +180,8 @@ CREATE INDEX XDR_WHERRY_preg_childall_BDIX ON XDR_WHERRY_preg_ENC(BIRTH_DATE);
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_preg_enc' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT	
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_WHERRY_preg_enc;
 COMMIT;
 

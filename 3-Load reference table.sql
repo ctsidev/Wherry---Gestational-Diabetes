@@ -1,9 +1,29 @@
 -- *******************************************************************************************************
--- STEP 4
+-- Step 3
 --		Load reference table
 -- *******************************************************************************************************
 --------------------------------------------------------------------------------
---	STEP 4.1: Create Diagnoses reference table
+--	Step 3.1: Create Race Roll-up reference table
+--------------------------------------------------------------------------------  
+DROP TABLE XDR_WHERRY_RACE_ROLLUP PURGE;
+CREATE TABLE "XDR_WHERRY_RACE_ROLLUP" 
+   (	"PATIENT_RACE_C" NUMBER(5,0), 
+	"PATIENT_RACE_NAME" VARCHAR2(50 BYTE), 
+	"ROLLUP_RACE_C" NUMBER(5,0), 
+	"ROLLUP_RACE_NAME" VARCHAR2(50 BYTE));
+--------------------------------------------------------------------------------
+--	Step 3.2: Load Race Roll-up records
+--------------------------------------------------------------------------------
+-- The file called [XDR_WHERRY_RACE_ROLLUP.csv] contains the data to load in the table above.
+-- You shall use the utility of your choice to load this file into XDR_WHERRY_RACE_ROLLUP
+-- which is used on Step 3.5 to add the appropriate context to these records.
+-- The file shall be formatted as a CSV with double quotation marks as text identifier.
+-- It's recommended to check that the 'PATIENT_RACE_C' value corresponds to the same 'PATIENT_RACE_NAME' in your environment.
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+--	Step 3.3: Create Diagnoses reference table
 --------------------------------------------------------------------------------  
 DROP TABLE XDR_Wherry_preg_DX_LOOKUP PURGE;
 CREATE TABLE XDR_BAGHDADI_DX_LOOKUP
@@ -11,7 +31,7 @@ CREATE TABLE XDR_BAGHDADI_DX_LOOKUP
 	"ICD_TYPE" NUMBER(*,0), 
 	"ICD_DESC" VARCHAR2(254 BYTE));
 --------------------------------------------------------------------------------
---	STEP 4.2: Load Diagnosis records
+--	Step 3.4: Load Diagnosis records
 --------------------------------------------------------------------------------
 -- The file called [XDR_BAGHDADI_DX_LOOKUP.zip] contains the data to load in the table above.
 -- You shall use the utility of your choice to load this file into XDR_BAGHDADI_DX_LOOKUP

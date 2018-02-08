@@ -1,15 +1,15 @@
 -- *******************************************************************************************************
---   The hsp_ld_mom_child table (Step 2.1) only covers a portion of the period cover by the study which means that
---	 we will use two processes to compile all the children linked to the mothers in this study.
---	 At UCLA, the go live date for Care Connect (03/01/2013) signals the date used in the threshold for this second approach. 
---	 This might differ depending on your organization
+--   The hsp_ld_mom_child table (Step 2.1) only covers a portion of the period of the study, which means that
+--	 we will use two processes to compile all the children linked to the mothers in the cohort.
+--	 At UCLA, the go live date for Care Connect was 03/01/2013 and it marks the date used in the threshold for the second approach. 
+--	 (This might differ depending on your organization)
 --   The second approach will look at:
---		Step 2.2 - Find children born during the period for this process (01/01/2006 - 03/01/203)
---		Step 2.3 - find hospital encounters for mothers identified in Step 1.1 (pregnancy dx codes)
---		Step 2.4 - Find children born during a mother hospitalization period
---		Step 2.5 - obtain patient contact information (address, phone, email, and proxy pat_id) for children and mothers
---		Step 2.6 - clean patient contact information
---		Step 2.7 - link children to potential mother based on the patient contact information --> create flags to categorized the linkages
+--		Step 2.2 - Find children born during the following period (01/01/2006 - 03/01/203)
+--		Step 2.3 - find hospital encounters for mothers identified in Step 1.1 (pregnancy DX codes)
+--		Step 2.4 - Create potential matches for children born during a mother hospitalization period
+--		Step 2.5 - Obtain patient contact information (address, phone, email, and proxy pat_id) for children and mothers
+--		Step 2.6 - Clean patient contact information
+--		Step 2.7 - Link children to potential mother based on the patient contact information --> create flags to categorized the linkages
 -- *******************************************************************************************************
 
 	
@@ -21,19 +21,12 @@
 DROP TABLE xdr_wherry_all_mom_child PURGE;                                                  
 CREATE TABLE xdr_wherry_all_mom_child AS
 SELECT DISTINCT nb.pat_id                                               AS child_pat_id
-               --,nbp.pat_mrn_id                                          AS nb_mrn
                ,nbp.birth_date                                          AS child_dob
-               --,mom.child_enc_csn_id                                    AS nb_csn
-               ,mom.line                                                AS child_rank
                ,xsx.name                                                AS child_sex
                ,nbp.ped_gest_age                                        AS child_age
                ,nbp.zip                                                 AS child_zip
                ,mom.pat_id                                              AS mom_pat_id
-               --,mp.pat_mrn_id                                           AS mom_mrn
                ,mp.birth_date                                           AS mom_dob
-               --,trunc(months_between(nbp.birth_date, mp.birth_date)/12) AS mom_age_at_delivery
-               --,mom.pat_enc_csn_id                                      AS mom_csn
-               ,MAX(line) OVER (PARTITION BY mom.pat_enc_csn_id)        AS number_of_babies
   FROM clarity.hsp_ld_mom_child mom
   LEFT JOIN clarity.pat_enc     nb  ON mom.child_enc_csn_id = nb.pat_enc_csn_id
   LEFT JOIN clarity.patient     nbp ON nb.pat_id = nbp.pat_id
@@ -41,15 +34,13 @@ SELECT DISTINCT nb.pat_id                                               AS child
   LEFT JOIN clarity.patient     mp  ON mom.pat_id = mp.pat_id
   WHERE 
         trunc(nbp.birth_date) BETWEEN '01/01/2006' AND '02/05/2018';
-  
- select count(*), count(distinct NB_pat_id), count(distinct mom_pat_id) from xdr_wherry_all_mom_child;     --17087	17087	14837
---ALTER TABLE xdr_wherry_prg_pat ADD CONSTRAINT xdr_wherry_prg_pat_pk PRIMARY KEY (pat_id);
+
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'xdr_wherry_all_mom_child' AS TABLE_NAME
-	,COUNT(distinct child_pat_id) AS PAT_COUNT	--    3,736(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
+	,COUNT(distinct child_pat_id) AS PAT_COUNT
+	,COUNT(*) AS TOTAL_COUNT
 FROM xdr_wherry_all_mom_child;
 COMMIT;
 
@@ -58,7 +49,6 @@ COMMIT;
 -- STEP 2.2
 --   Create an initial children table with all patients born in the period prior to CC launch date (01/01/2006 - 03/01/2013)
 -- *******************************************************************************************************
---maybe reduce this to the '01/01/2006' AND '03/02/2013' period since 2013 to present is addressed by the mom-child link table
 DROP TABLE XDR_WHERRY_preg_childall PURGE;
 CREATE TABLE XDR_WHERRY_preg_childall AS
 SELECT DISTINCT pat.pat_id
@@ -73,20 +63,12 @@ SELECT DISTINCT pat.pat_id
 FROM clarity.patient pat
 WHERE birth_date BETWEEN   '01/01/2006' AND '03/01/2013';
 
---QA counts (to be removed?)
-/*
-select count(*) , count(distinct pat_id)  from XDR_WHERRY_PREG_CHILDALL;        --168490	168490
-select extract(year from birth_date) as y, count(distinct pat_id)  
-from XDR_WHERRY_PREG_CHILDALL
-group by extract(year from birth_date)
-order by y;        --168490	168490
-*/
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_preg_childall' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--5,953,931(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT	
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_WHERRY_preg_childall;
 COMMIT;
 
@@ -95,7 +77,7 @@ COMMIT;
 -- STEP 2.3
 --   		Create hospital encounters table for mother for the '01/01/2006' - '03/01/2013' period
 -- *******************************************************************************************************
---caveat, sometimes children get assigned a pregnancy DX code. The PI will be discarding them on their end (2/1/18)
+
 DROP TABLE XDR_WHERRY_preg_HSP PURGE;
 CREATE TABLE XDR_WHERRY_preg_HSP AS
 SELECT * 
@@ -111,8 +93,8 @@ WHERE encounter_type = 'Hospital Encounter'
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_preg_hsp' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--	  3,736(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 				--5,953,931(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT
+	,COUNT(*) AS TOTAL_COUNT 				
 FROM XDR_WHERRY_preg_hsp;
 COMMIT;
 
@@ -120,9 +102,8 @@ COMMIT;
 -- *******************************************************************************************************
 -- STEP 2.4
 --   		Create table matching hospital encounter with children DOB for the '01/01/2006' - '03/01/2013' population
+--			It took 22k seconds to run 
 -- *******************************************************************************************************
---7:50 am: 40731 seconds
---9:15 am: 22406 seconds
 DROP TABLE XDR_WHERRY_preg_enc_dob PURGE;
 CREATE TABLE XDR_WHERRY_preg_enc_dob AS
 SELECT enc.PAT_ID		as mom_pat_id
@@ -137,8 +118,8 @@ JOIN  XDR_WHERRY_preg_HSP		enc ON cld.birth_date between enc.hosp_admsn_time and
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_preg_enc_dob' AS TABLE_NAME
-	,COUNT(distinct mom_pat_id) AS PAT_COUNT	--
-	,COUNT(*) AS TOTAL_COUNT 					--
+	,COUNT(distinct mom_pat_id) AS PAT_COUNT	
+	,COUNT(*) AS TOTAL_COUNT 					
 FROM XDR_WHERRY_preg_enc_dob;
 COMMIT;
 
@@ -152,8 +133,8 @@ select distinct x.* from XDR_WHERRY_preg_enc_dob x;
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_preg_enc_dob_dist' AS TABLE_NAME
-	,COUNT(distinct mom_pat_id) AS PAT_COUNT	--
-	,COUNT(*) AS TOTAL_COUNT 					--
+	,COUNT(distinct mom_pat_id) AS PAT_COUNT	
+	,COUNT(*) AS TOTAL_COUNT 					
 FROM XDR_WHERRY_preg_enc_dob_dist;
 COMMIT;
 
@@ -161,26 +142,27 @@ COMMIT;
 -- STEP 2.5
 --   		Create mother and children specific tables to optimize matching query
 -- *******************************************************************************************************
-
---	Mothers
+	---------------------------------------------------
+	--	Step 2.5.1	Mothers
+	---------------------------------------------------
 DROP TABLE XDR_WHERRY_mom_matching PURGE;
 CREATE TABLE XDR_WHERRY_mom_matching AS
 SELECT DISTINCT enc.MOM_PAT_ID
-,pat.add_line_1
-,pat.city
-,pat.zip
-,pat.home_phone
-,pat.email_address
-,pat.birth_date
-,pat.sex
+			,pat.add_line_1
+			,pat.city
+			,pat.zip
+			,pat.home_phone
+			,pat.email_address
+			,pat.birth_date
+			,pat.sex
 FROM XDR_WHERRY_preg_enc_dob		enc
 LEFT JOIN clarity.patient			pat on enc.MOM_PAT_ID = pat.pat_id;
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_mom_matching' AS TABLE_NAME
-	,COUNT(distinct mom_pat_id) AS PAT_COUNT	--
-	,COUNT(*) AS TOTAL_COUNT 					--
+	,COUNT(distinct mom_pat_id) AS PAT_COUNT
+	,COUNT(*) AS TOTAL_COUNT 				
 FROM XDR_WHERRY_mom_matching;
 COMMIT;
 
@@ -189,29 +171,27 @@ create index XDR_WHERRY_mom_patidix on XDR_WHERRY_mom_matching(mom_pat_id);
 create index XDR_WHERRY_mom_addix on XDR_WHERRY_mom_matching(add_line_1);
 create index XDR_WHERRY_mom_phix on XDR_WHERRY_mom_matching(home_phone);
 create index XDR_WHERRY_mom_emailix on XDR_WHERRY_mom_matching(email_address);
-
---SELECT COUNT(*) COUNT_TOTAL, count(distinct mom_pat_id) AS COUNT_MOM FROM XDR_WHERRY_mom_matching;--SELECT COUNT(*) COUNT_TOTAL, count(distinct mom_pat_id) AS COUNT_MOM FROM XDR_WHERRY_mom_matching;--30077	30077	53724       53724	53724
-
-
--- Children
+	---------------------------------------------------
+	--	Step 2.5.2	Children
+	---------------------------------------------------
 DROP TABLE XDR_WHERRY_child_matching PURGE;
 CREATE TABLE XDR_WHERRY_child_matching AS
 SELECT DISTINCT enc.child_pat_id
-,pat.add_line_1
-,pat.city
-,pat.zip
-,pat.home_phone
-,pat.email_address
-,pat.birth_date
-,pat.sex
+			,pat.add_line_1
+			,pat.city
+			,pat.zip
+			,pat.home_phone
+			,pat.email_address
+			,pat.birth_date
+			,pat.sex
 FROM XDR_WHERRY_preg_enc_dob		enc
 LEFT JOIN XDR_WHERRY_preg_childall			pat on enc.child_pat_id = pat.pat_id;
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_child_matching' AS TABLE_NAME
-	,COUNT(distinct child_pat_id) AS PAT_COUNT	--
-	,COUNT(*) AS TOTAL_COUNT 					--
+	,COUNT(distinct child_pat_id) AS PAT_COUNT
+	,COUNT(*) AS TOTAL_COUNT
 FROM XDR_WHERRY_child_matching;
 COMMIT;
 
@@ -222,26 +202,23 @@ create index XDR_WHERRY_cld_phix on XDR_WHERRY_child_matching(home_phone);
 create index XDR_WHERRY_cld_emailix on XDR_WHERRY_child_matching(email_address);
 
 
---SELECT COUNT(*) COUNT_TOTAL, count(distinct child_pat_id) AS COUNT_CHILD FROM XDR_WHERRY_child_matching;--112379	112379          53724	53724
-
-
 
 -- *******************************************************************************************************
 -- STEP 2.6
 --   		Clean patent contact info to avoid low quality matches
 --------------------------------------------------------------------------------------------------------
---		Identify place holders, dummy, or mistaken contact information to exclude from the matching query
+--		Identify place holders, dummy, or mistaken contact information records to exclude from the matching criteria
 --		The code already includes some common patterns found at UCLA that refer to this issues. However, 
---		the script is also looking at the particular datasets to identify other potential issues and includes them in the code
+--		the script is also looking at the particular datasets to identify other potential issues and include them in the code.
 --		This portion requires some minor manual manipulation, as the issues will be different at each site but
 -- 		it is important to executed in order to create an optimized dataset that reduce un-wanted matches.
 -- *******************************************************************************************************
 
 	--------------------------------------------------------------------------------------------------------
-	--	Step 2.6.1: Address lookup
-	--	 It identifies some dummy/place holder records and some entries that belong to health institutions which shouldn't be user to pair patients
+	--	Step 2.6.1: Address clean-up
+	--	 It identifies some dummy/place holder records and some entries that belong to health institutions which shouldn't be used to pair patients
 	--	 Based on our findings, we manually enter some entries on the first portion of the WHERE clause and add a flag to be used [address_yn] later
-	--	This is ran both in the XDR_WHERRY_mom_matching and XDR_WHERRY_child_matching tables
+	--	 This is ran both in the XDR_WHERRY_mom_matching and XDR_WHERRY_child_matching tables
 	--------------------------------------------------------------------------------------------------------
 select add_line_1, count(*) AS C FROM
 (
@@ -358,7 +335,7 @@ commit;
 --105,899 rows updated.
 
 	--------------------------------------------------------------------------------------------------------
-	--	Step 2.6.2: Home phone lookup
+	--	Step 2.6.2: Home phone clean-up
 	--	 It identifies some dummy/place holder records and some entries that belong to health institutions which shouldn't be user to pair patients
 	-- 	we use this service to check some phone #s: https://www.411.com/phone
 	--	 Based on our findings, we manually enter some entries on the first portion of the WHERE clause and add a flag to be used [phone_yn] later
@@ -379,12 +356,8 @@ null        	8000
 000-000-0000	1584
 000-000-0001	860
 999-999-9999	47
-213-742-1335	40      we couldn't deternine where it belongs
 310-000-0000	38
 818-252-5863	34      Totally Kids Specialty Health Care
-213-742-1339	31      we couldn't deternine where it belongs
-661-298-8000	21      we couldn't deternine where it belongs
-310-399-9536	17      we couldn't deternine where it belongs
 818-999-9999	16
 310-000-0001	16
 805-000-0000	8
@@ -446,8 +419,8 @@ commit;
 --101,111 rows updated.
 
 	--------------------------------------------------------------------------------------------------------
-	--	Step 2.6.3: Email lookup
-	--	 We did find dummy/place holders records. It only showed null and potentially real address
+	--	Step 2.6.3: Email clean-up
+	--	 We didn't find dummy/place holders records. It only showed null and potentially real address
 	--------------------------------------------------------------------------------------------------------
 
 select EMAIL_ADDRESS, count(*) AS C FROM
@@ -470,7 +443,6 @@ order by c desc;
 --				Address
 --				Phone
 --				Email	
---------------------------------------------------------------------------------------------------------
 -- *******************************************************************************************************
 DROP TABLE XDR_WHERRY_preg_matching purge;
 CREATE TABLE XDR_WHERRY_preg_matching AS
@@ -480,12 +452,6 @@ SELECT DISTINCT enc.mom_pat_id
 				,enc.hosp_admsn_time 
 				,enc.hosp_dischrg_time
 				,enc.CHILD_BIRTH_DATE
-				
-/*				,CASE WHEN (	--SOUNDEX ADDRESS MATCH
-							SOUNDEX(mom.add_line_1) = SOUNDEX(cld.add_line_1)
-							AND mom.ADDRESS_YN = 'y' 
-							AND cld.ADDRESS_YN = 'y'
-							) THEN 1 ELSE 0 END SIMILAR_ADDRESS*/
 				,CASE WHEN ( 	--EXACT ADDRESS MATCH
                             mom.add_line_1 = cld.add_line_1
                             AND mom.ADDRESS_YN = 'y' 
@@ -507,15 +473,9 @@ LEFT JOIN XDR_WHERRY_mom_matching		mom on enc.mom_pat_id = mom.mom_pat_id
 LEFT JOIN XDR_WHERRY_child_matching		cld on enc.child_pat_id = cld.child_pat_id
 LEFT JOIN clarity.PAT_MYC_PRXY_HX		prx ON enc.child_pat_id = prx.pat_id
 WHERE
-    	enc.mom_pat_id <> enc.child_pat_id      --sometimes, the child gets assigned a preganncy dx code and since it was also at the hospital, it can get tagged to herself
+    	enc.mom_pat_id <> enc.child_pat_id      --sometimes, the child gets assigned a pregnancy dx code and since it was also at the hospital, it can get tagged to herself
          and
         (
-		--SOUNDEX ADDRESS MATCH
-			/*( 
-			SOUNDEX(mom.add_line_1) = SOUNDEX(cld.add_line_1)
-			AND mom.ADDRESS_YN = 'y' 
-            AND cld.ADDRESS_YN = 'y'
-			)*/
         --EXACT ADDRESS MATCH
 		OR ( 
 			mom.add_line_1 = cld.add_line_1
@@ -541,8 +501,8 @@ WHERE
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_preg_matching' AS TABLE_NAME
-	,COUNT(distinct mom_pat_id) AS PAT_COUNT	--
-	,COUNT(*) AS TOTAL_COUNT 					--
+	,COUNT(distinct mom_pat_id) AS PAT_COUNT	
+	,COUNT(*) AS TOTAL_COUNT 					
 FROM XDR_WHERRY_preg_matching;
 COMMIT;
 
@@ -561,11 +521,6 @@ using
 				,enc.hosp_dischrg_time
 				,enc.CHILD_BIRTH_DATE
 				,1 AS SIMILAR_ADDRESS
-/*				,CASE WHEN (	--SOUNDEX ADDRESS MATCH
-							SOUNDEX(mom.add_line_1) = SOUNDEX(cld.add_line_1)
-							AND mom.ADDRESS_YN = 'y' 
-							AND cld.ADDRESS_YN = 'y'
-							) THEN 1 ELSE 0 END SIMILAR_ADDRESS*/
 FROM XDR_WHERRY_preg_matching			mat
 JOIN XDR_WHERRY_preg_enc_dob_dist		enc ON mat.mom_pat_id = enc.mom_pat_id AND mat.child_pat_id = enc.child_pat_id
 LEFT JOIN XDR_WHERRY_mom_matching		mom on enc.mom_pat_id = mom.mom_pat_id
@@ -596,6 +551,7 @@ WHERE
 	--------------------------------------------------------------------------------------------------------
 	--	Step 2.8.1: Select distinct matches (this is done here to avoid running a DISTINCT on Step 2.7 that could affect performance)
 	--				Sometimes children may received a pregnancy diagnoses that could set them up to be selected as potential mothers
+	--				The PHI in here is not to be released to the PI and only used for QA the matching process
 	--------------------------------------------------------------------------------------------------------
 DROP TABLE XDR_WHERRY_preg_matching_FINAL PURGE;
 CREATE TABLE XDR_WHERRY_preg_matching_FINAL AS
@@ -606,7 +562,6 @@ SELECT DISTINCT ORIG.MOM_PAT_ID
 			,ORIG.PHONE_MATCH
 			,ORIG.ADDRESS_MATCH
 			,ORIG.SIMILAR_ADDRESS
-			--,ORIG.EFFECTIVE_DATE_DT
 			,MOM.ZIP 			AS MOM_ZIP
 			,MOM.PHONE_YN 		AS MOM_PHONE_YN
 			,MOM.HOME_PHONE 	AS MOM_HOME_PHONE
@@ -616,7 +571,6 @@ SELECT DISTINCT ORIG.MOM_PAT_ID
 			,MOM.ADDRESS_YN 	AS MOM_ADDRESS_YN
 			,MOM.BIRTH_DATE		AS MOM_BIRTH_DATE
 			,MOM.SEX            as MOM_SEX
-			--,PM.PAT_NAME AS MOM_NAME
 			,CLD.ZIP 			AS CHILD_ZIP
 			,CLD.PHONE_YN 		AS CHILD_PHONE_YN
 			,CLD.HOME_PHONE 	AS CHILD_HOME_PHONE
@@ -625,16 +579,14 @@ SELECT DISTINCT ORIG.MOM_PAT_ID
 			,CLD.ADD_LINE_1 	AS CHILD_ADD_LINE_1
 			,CLD.ADDRESS_YN 	AS CHILD_ADDRESS_YN
 			,ORIG.CHILD_BIRTH_DATE
-			--,CLD.BIRTH_DATE		AS CHILD_BIRTH_DATE
 			,CLD.SEX            AS CHILD_SEX
-			--,CM.PAT_NAME AS CHILD_NAME
 FROM XDR_WHERRY_preg_matching       ORIG
 LEFT JOIN XDR_WHERRY_mom_matching		mom on orig.mom_pat_id = mom.mom_pat_id
 left join clarity.patient               pm on mom.mom_pat_id = pm.pat_id
 LEFT JOIN XDR_WHERRY_child_matching		cld on ORIG.child_pat_id = cld.child_pat_id
 left join clarity.patient               cm on cld.child_pat_id = cm.pat_id
 WHERE
-	ROUND(MONTHS_BETWEEN(ORIG.EFFECTIVE_DATE_DT,pm.birth_date)/12) > 1;
+	ROUND(MONTHS_BETWEEN(ORIG.EFFECTIVE_DATE_DT,pm.birth_date)/12) > 1;		--sometimes, the child gets assigned a pregnancy dx code and since it was also at the hospital, it could be tagged to her twin
  
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
@@ -644,11 +596,15 @@ SELECT 'XDR_WHERRY_preg_matching_FINAL' AS TABLE_NAME
 FROM XDR_WHERRY_preg_matching_FINAL;
 COMMIT;
 
+--manual QA
 SELECT * FROM  XDR_WHERRY_preg_matching_FINAL;
 
 	--------------------------------------------------------------------------------------------------------
 	--	Step 2.8.2: Remove children matched to two different mothers
+	--				Considering the low count of patients in this scenario and the fact that it will requires
+	--				a very time consuming process, the PI decided to simply exclude these patients from final cohort.
 	--------------------------------------------------------------------------------------------------------
+	--select children assigned to two different mothers
 DROP TABLE XDR_WHERRY_preg_matching_ex PURGE;
 create table XDR_WHERRY_preg_matching_ex as
 select  orig.*
@@ -672,13 +628,12 @@ FROM XDR_WHERRY_preg_matching_ex;
 COMMIT;
 
 
-
+	--remove selected children from final table
 delete from XDR_WHERRY_preg_matching_final
 where CHILD_PAT_ID in (
 						select distinct CHILD_PAT_ID 
 						from XDR_WHERRY_preg_matching_ex 
 						);
-
 commit;
 
 --Add counts for QA
@@ -692,9 +647,9 @@ COMMIT;
 
 -- *******************************************************************************************************
 -- STEP 2.9
---   		insert final 2006-2013 mother-child records into xdr_wherry_all_mom_child (pending) 2/2/18
+--   		insert final 2006-2013 mother-child records into xdr_wherry_all_mom_child
 -- *******************************************************************************************************
---Add flags created during ,atching process
+--Add flags created during ,matching process
 ALTER TABLE xdr_wherry_all_mom_child ADD PROXY_MATCH VARCHAR(2);
 ALTER TABLE xdr_wherry_all_mom_child ADD ADDRESS_MATCH VARCHAR(2);
 ALTER TABLE xdr_wherry_all_mom_child ADD PHONE_MATCH VARCHAR(2);
@@ -702,15 +657,13 @@ ALTER TABLE xdr_wherry_all_mom_child ADD EMAIL_MATCH VARCHAR(2);
 ALTER TABLE xdr_wherry_all_mom_child ADD SIMILAR_ADDRESS VARCHAR(2);
 
 --insert records 
-INSERT INTO xdr_wherry_all_mom_child (child_pat_id,child_dob,child_rank,child_sex,child_zip,mom_pat_id,mom_dob,number_of_babies,PROXY_MATCH,ADDRESS_MATCH,PHONE_MATCH,EMAIL_MATCH,SIMILAR_ADDRESS
+INSERT INTO xdr_wherry_all_mom_child (child_pat_id,child_dob,child_sex,child_zip,mom_pat_id,mom_dob,PROXY_MATCH,ADDRESS_MATCH,PHONE_MATCH,EMAIL_MATCH,SIMILAR_ADDRESS)
 SELECT DISTINCT CHILD_PAT_ID
 				,CHILD_BIRTH_DATE
-				,9999999 	AS child_rank
 				,CHILD_SEX
 				,CHILD_ZIP
 				,mom_pat_id
 				,MOM_BIRTH_DATE
-				,999999 number_of_babies
 				,PROXY_MATCH
 				,ADDRESS_MATCH
 				,PHONE_MATCH
@@ -729,8 +682,6 @@ FROM xdr_wherry_all_mom_child;
 COMMIT;
 
 
-
-
 			   
 --QA queries and descriptive outcomes
 select matching_vector,count(*) from (
@@ -740,24 +691,3 @@ SELECT distinct x.ADDRESS_MATCH ||  x.PHONE_MATCH ||  x.EMAIL_MATCH || x.PROXY_M
 FROM XDR_WHERRY_preg_matching_final x )
 group by matching_vector
 order by matching_vector;
-
-
-
-
-
---what about mothers who were assigned more than one kid on the same data but they were not twins?
-select x.* 
-from (
-select MOM_PAT_ID,CHILD_BIRTH_DATE
-,EMAIL_MATCH
-,count(distinct CHILD_PAT_ID ) CHILD_count from XDR_WHERRY_preg_matching_final
-group by MOM_PAT_ID,CHILD_BIRTH_DATE,EMAIL_MATCH
-) x
-where x.CHILD_count > 1
-ORDER BY X.MOM_PAT_ID;
-
---618 MOTHERS WITH TWINS OR TRIPLETS
---SAME FLAG ON PROXY 593
---SAME FLAG ON ADDRESS 516
---SAME FLAG ON PHONE 536
---SAME FLAG ON EMAIL 611

@@ -1,31 +1,10 @@
---left join pat_acct_cvg 				pac on pat.pat_id = pac.pat_id AND pac.account_active_yn = 'Y'
---left join clarity_epp 				clepp on pac.plan_id = clepp.benefit_plan_id
---left join zc_financial_class 		fincls on pac.fin_class = fincls.financial_class
-
 -- *******************************************************************************************************
---	STEP 2: Create patient table with the demographic information requested by the PI (section c of the criteria + pull demographics)
+--	Step 4: Create patient table with the demographic information requested by the PI (section c of the criteria + pull demographics)
 --				c. Patient age: 18 or older at the time of the admission
 -- *******************************************************************************************************
---------------------------------------------------------------------------------
---	STEP 2.1: Create Race Rollup reference table
---------------------------------------------------------------------------------  
-DROP TABLE XDR_WHERRY_RACE_ROLLUP PURGE;
-CREATE TABLE "XDR_WHERRY_RACE_ROLLUP" 
-   (	"PATIENT_RACE_C" NUMBER(5,0), 
-	"PATIENT_RACE_NAME" VARCHAR2(50 BYTE), 
-	"ROLLUP_RACE_C" NUMBER(5,0), 
-	"ROLLUP_RACE_NAME" VARCHAR2(50 BYTE));
---------------------------------------------------------------------------------
---	Step 2.2: Load Race Rollup records
---------------------------------------------------------------------------------
--- The file called [XDR_WHERRY_RACE_ROLLUP.csv] contains the data to load in the table above.
--- You shall use the utility of your choice to load this file into XDR_WHERRY_RACE_ROLLUP
--- which is used on step 2.5 to add the appropiate context to these records.
--- The file shall be formatted as a CSV with double quotation marks as text identifier.
--- It's recommended to check that the 'PATIENT_RACE_C' value corresponds to the same 'PATIENT_RACE_NAME' in your environment.
 
 --------------------------------------------------------------------------------
---	Step 2.3: Create Patient Table
+--	Step 4.1: Create Patient Table
 --------------------------------------------------------------------------------
 DROP TABLE XDR_WHERRY_preg_pat PURGE;
   CREATE TABLE XDR_WHERRY_preg_pat
@@ -34,9 +13,7 @@ DROP TABLE XDR_WHERRY_preg_pat PURGE;
     "MOM_PAT_ID" VARCHAR2(18 BYTE),
     "FIRST_ENC_DATE" DATE,
 	"LAST_ENC_DATE" DATE,
---    "PAT_ENC_CSN_ID" VARCHAR(11),
 	"BIRTH_DATE" DATE, 
---	"DEATH_DATE" DATE, 
 	"PATIENT_STATUS" VARCHAR2(254 BYTE), 
 	"ETHNIC_GROUP_C" NUMBER(38,0), 
 	"ETHNIC_GROUP" VARCHAR2(254 BYTE), 
@@ -44,8 +21,6 @@ DROP TABLE XDR_WHERRY_preg_pat PURGE;
 	"MAPPED_RACE_NAME" VARCHAR2(254 BYTE), 
 	"RESTRICTED_YN" VARCHAR2(1 BYTE), 
 	"MAPPED_RACE_C" NUMBER(38,0),
-    --"BENEFIT_PLAN_NAME" VARCHAR2(254 BYTE),
-    --"FINANCIAL_CLASS" VARCHAR2(254 BYTE),
 	"CUR_PCP_PROV_ID" VARCHAR2(254 BYTE),
 	"MOM_CHILD_MC" VARCHAR2(1 BYTE)
   );  
@@ -55,16 +30,12 @@ DROP TABLE XDR_WHERRY_preg_pat PURGE;
 INSERT INTO XDR_WHERRY_preg_pat
 SELECT rownum as study_id,
 	pat.* 
---,'M' MOM_CHILD_YN
 from
 	(SELECT DISTINCT coh.pat_id,
 					coh.MOM_PAT_ID,
 					null as FIRST_ENC_DATE,
 					null AS LAST_ENC_DATE,
-					--coh.PAT_ENC_CSN_ID,
-					--p.pat_mrn_id,
 					p.birth_date,
-					--p.death_date,
 					ps.name patient_status,
 					coalesce(p.ethnic_group_c, -999) ethnic_group_c, 
 					coalesce(eg.name, 'Unknown') ethnic_group,
@@ -72,8 +43,6 @@ from
 					null as mapped_race_name,
 					p.restricted_yn,
 					null as mapped_race_c,
-					--null as BENEFIT_PLAN_NAME,
-					--null as FINANCIAL_CLASS,
 					p.cur_pcp_prov_id,
 					coh.MOM_CHILD_YN
 	FROM 
@@ -110,6 +79,7 @@ ORDER BY  dbms_random.value
 ;
 COMMIT;
 --106,383 rows inserted.
+
 --Add counts for QA
 INSERT INTO XDR_WHERRY_preg_COUNTS(TABLE_NAME,PAT_COUNT,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_preg_pat' AS TABLE_NAME
@@ -122,8 +92,8 @@ COMMIT;
 
 SELECT * FROM XDR_WHERRY_preg_pat ORDER BY PAT_ID;
 --------------------------------------------------------------------------------
---	STEP 2.4: Create patient table with all the mapped race values that apply to each patient
---				This process is the one used for UCRex, therefore if you already have this in your datamart
+--	Step 4.2: Create patient table with all the mapped race values that apply to each patient
+--				This process is the one used for UCReX, therefore if you already have this in your datamart
 --				you might be able to include it here instead of running this portion of the code.
 --------------------------------------------------------------------------------
 DROP TABLE XDR_WHERRY_preg_pat_ALLRACE PURGE;
@@ -135,7 +105,6 @@ FROM XDR_WHERRY_preg_pat pat
 join clarity.patient_race r on pat.pat_id = r.pat_id
 JOIN clarity.zc_patient_race pr ON r.patient_race_c = pr.patient_race_c
 WHERE r.patient_race_c is not null;
-        --AND MOM_CHILD_MC = 'M';
 
 --Add counts for QA
 INSERT INTO XDR_WHERRY_preg_COUNTS
@@ -147,7 +116,7 @@ FROM XDR_WHERRY_preg_pat_ALLRACE;
 COMMIT;
 
 --------------------------------------------------------------------------------
---	STEP 2.5: Create NEW patient table where only one race category is applied to each patient
+--	Step 4.3: Create NEW patient table where only one race category is applied to each patient
 --------------------------------------------------------------------------------
 DROP TABLE XDR_WHERRY_preg_pat_RACE PURGE;
 CREATE TABLE XDR_WHERRY_preg_pat_RACE AS
@@ -211,12 +180,13 @@ SELECT DISTINCT pat_id, mapped_race_c, mapped_race_name FROM
 --Add counts for QA
 INSERT INTO XDR_WHERRY_preg_COUNTS(TABLE_NAME,PAT_COUNT,TOTAL_COUNT)
 SELECT 'XDR_WHERRY_preg_pat_RACE' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT		--3,738(9/1/17)
-	,COUNT(*) AS TOTAL_COUNT 			--3,738(9/1/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT
+	,COUNT(*) AS TOTAL_COUNT
 FROM XDR_WHERRY_preg_pat_RACE;
 COMMIT;
+
 --------------------------------------------------------------------------------
---	STEP 2.6: Update race name accordingly
+--	Step 4.4: Update race name accordingly
 --------------------------------------------------------------------------------	  
 MERGE INTO XDR_WHERRY_preg_pat pat
 using

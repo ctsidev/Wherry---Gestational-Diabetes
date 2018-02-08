@@ -66,7 +66,7 @@ CREATE INDEX xdr_Wherry_preg_lab_ENCIDIX ON xdr_Wherry_preg_lab(pat_enc_csn_id);
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_LAB' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--    3,736(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT    3,736(9/5/17)
 	,COUNT(*) AS TOTAL_COUNT 				--2,555,351(9/5/17)
 FROM XDR_Wherry_preg_LAB;
 COMMIT;
@@ -149,8 +149,8 @@ left join clarity.zc_pharm_subclass     zsc ON cm.pharm_subclass_c = zsc.pharm_s
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_MED' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--  3,734(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--249,042(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT	
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_Wherry_preg_MED;
 COMMIT;
 
@@ -254,8 +254,8 @@ commit;
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_DX' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--
-	,COUNT(*) AS TOTAL_COUNT 		--10,939 rows inserted.(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_Wherry_preg_DX;
 COMMIT;
 
@@ -297,13 +297,13 @@ when not matched then
   values (adm.pat_id, adm.pat_enc_csn_id, adm.contact_date, adm.icd_code, adm.icd_type, 'S', null, null, null)
 ;
 commit;
---195,913 rows merged.(9/5/17)
+
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_DX' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--
-	,COUNT(*) AS TOTAL_COUNT 		--206,852(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_Wherry_preg_DX;
 COMMIT;
 
@@ -354,13 +354,12 @@ when not matched then
   values (adm.pat_id, adm.pat_enc_csn_id, adm.contact_date, adm.icd_code, adm.icd_type, null, 'A', null, null)
 ;
 commit;
---35,401 rows merged.(9/5/17)
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_DX' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--
-	,COUNT(*) AS TOTAL_COUNT 		--206,852(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_Wherry_preg_DX;
 COMMIT;
 
@@ -416,7 +415,6 @@ when not matched then
   values (hsp.pat_id, hsp.pat_enc_csn_id, hsp.contact_date, hsp.icd_code, hsp.icd_type,'P', null, null, 1)
 ;
 commit;
---6,525 rows merged.(9/5/17)
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
@@ -475,7 +473,6 @@ when not matched then
   values (hsp.pat_id, hsp.pat_enc_csn_id, hsp.contact_date, hsp.icd_code, hsp.icd_type,'S', null, null, 1)
 ;
 commit;
---151,767 rows merged.(9/5/17)
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
@@ -535,13 +532,12 @@ WHERE EXISTS (SELECT hsp.pat_id
   and lcd.icd_code = hsp.icd_code
   and lcd.icd_type = hsp.icd_type);
 commit;
---103,882 rows updated.(9/5/17)
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_DX' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	--  3,738(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--328,354(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT  
+	,COUNT(*) AS TOTAL_COUNT
 FROM XDR_Wherry_preg_DX;
 COMMIT;
 
@@ -583,13 +579,13 @@ FROM clarity.hsp_acct_px_list p
       --JOIN XDR_Wherry_preg_PAT   coh on t.PAT_ENC_CSN_ID = coh.PAT_ENC_CSN_ID
       join clarity.ZC_HCD_CODE_SET zhcs on i.REF_BILL_CODE_SET_C = zhcs.CODE_SET_C
       WHERE p.proc_date BETWEEN '01/01/2006' AND '02/05/2018';
---552,841 rows inserted.(01/18/18)
 COMMIT;
+
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_PRC' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_Wherry_preg_PRC;
 COMMIT;
 
@@ -606,7 +602,6 @@ SELECT arpb.patient_id 								    AS pat_id
                       ,arpb.SERV_PROVIDER_ID            AS prov_id
         FROM clarity.arpb_transactions  arpb 
         join XDR_WHERRY_preg_ENC        enc on arpb.pat_enc_csn_id = enc.pat_enc_csn_id
-        --join i2b2.lz_clarity_patient    pat on arpb.patient_id = pat.pat_id
         WHERE --patient_id is not null AND 
           tx_type_c = 1					-----  Charges only
           AND void_date is null
@@ -616,8 +611,8 @@ COMMIT;
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_PRC' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT 
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_Wherry_preg_PRC;
 COMMIT;
     --------------------------------------------------------------------------------
@@ -636,28 +631,19 @@ SELECT hsp.pat_id
             LEFT JOIN clarity.f_arhb_inactive_tx    fait on hspt.tx_id = fait.tx_id
             join XDR_WHERRY_preg_ENC                enc on hspt.pat_enc_csn_id = enc.pat_enc_csn_id
             LEFT JOIN clarity.CLARITY_EAP           eap ON hspt.proc_id = eap.proc_id
-            --join i2b2.lz_clarity_patient pat on hsp.pat_id = pat.pat_id
           where hspt.tx_type_ha_c = 1  
           and (length(hspt.cpt_code) = 5 or hspt.hcpcs_code is not null)
           and fait.tx_id is null
 		  AND hspt.service_date BETWEEN '01/01/2006' AND '02/05/2018'; 
 COMMIT;
+
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_PRC' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT 
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_Wherry_preg_PRC;
 COMMIT;
-
-
-select code_type,count(*) 
-from xdr_Wherry_preg_prc
-group by ICD_CODE_SET;
---ICD-10-PCS	18656
---ICD-9-CM Volume 3	13053
-
-
 
 --------------------------------------------------------------------------------
 -- STEP 6.6: Create Flowsheet table
@@ -705,15 +691,14 @@ SELECT DISTINCT coh.pat_id
                                     ,'301070'     --BMI
                                     ,'10'         --Pulse Oximetry (SpO2)
                                     )
-									
 			AND meas.recorded_time BETWEEN '01/01/2006' AND '02/05/2018'; 									
 ;
 
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_FLO' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT 
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_Wherry_preg_FLO;
 COMMIT;
 
@@ -780,14 +765,14 @@ SELECT DISTINCT coh.pat_id
   LEFT JOIN clarity.zc_hx_drink_types   xdt ON soa.hx_drink_types_c = xdt.hx_drink_types_c
   WHERE soc.pat_enc_date_real = (SELECT MAX(soc.pat_enc_date_real) FROM social_hx soc WHERE soc.pat_id = coh.pat_id)
 ;
+
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_SOC' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT 
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_Wherry_preg_SOC;
 COMMIT;
-
 
 --------------------------------------------------------------------------------
 -- STEP 6.8: Create Family History table
@@ -813,8 +798,8 @@ SELECT DISTINCT pat.pat_id
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'XDR_Wherry_preg_FAM' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	-- 3,238(9/5/17)
-	,COUNT(*) AS TOTAL_COUNT 		--31,709(9/5/17)
+	,COUNT(distinct pat_id) AS PAT_COUNT 
+	,COUNT(*) AS TOTAL_COUNT 		
 FROM XDR_Wherry_preg_FAM;
 COMMIT;
 
@@ -828,20 +813,13 @@ SELECT DISTINCT enc.pat_id
                ,enc.effective_date_dt as encounter_date
                ,pl.problem_list_id
                ,pl.dx_id
-               --,pl.description                AS prob_desc 
                ,pl.noted_date                 AS noted_date
                ,pl.date_of_entry              AS update_date
                ,pl.resolved_date              AS resolved_date
                ,zps.name                      AS problem_status        
-               --,pl.problem_cmt                AS problem_cmt     
                ,zhp.name                      AS priority
-               --,pl.hospital_pl_yn             AS hospital_problem
                ,PL.PRINCIPAL_PL_YN            AS principal_yn
-               --,pl.PROBLEM_TYPE_C             --1-MEDICAL   2-NURSING   3-Hospitalization   (in progress)
                ,pl.chronic_yn                 AS chronic_yn
-               --,ser.prov_id                           
-               --,ser.prov_type          
-               --,prv.primary_specialty      
   FROM xdr_Wherry_preg_enc                  enc
   JOIN clarity.problem_list                 pl    ON enc.pat_enc_csn_id = pl.problem_ept_csn AND rec_archived_yn = 'N'
   LEFT JOIN clarity.clarity_ser             ser   ON pl.entry_user_id = ser.user_id
@@ -851,7 +829,13 @@ SELECT DISTINCT enc.pat_id
   WHERE
 		pl.noted_date BETWEEN '01/01/2006' AND '02/05/2018'; 
 
-
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+SELECT 'xdr_Wherry_preg_pl' AS TABLE_NAME
+	,COUNT(distinct pat_id) AS PAT_COUNT	        --30855
+	,COUNT(*) AS TOTAL_COUNT 		                --301122
+FROM xdr_Wherry_preg_pl;
+COMMIT;
 
 --------------------------------------------------------------------------------
 -- STEP 6.10: Create Problem List Diagnosis table
@@ -891,8 +875,8 @@ FROM xdr_Wherry_preg_pl               pl
 --Add counts for QA
 INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
 SELECT 'xdr_Wherry_preg_pldx' AS TABLE_NAME
-	,COUNT(distinct pat_id) AS PAT_COUNT	        --30855
-	,COUNT(*) AS TOTAL_COUNT 		                --301122
+	,COUNT(distinct pat_id) AS PAT_COUNT
+	,COUNT(*) AS TOTAL_COUNT
 FROM xdr_Wherry_preg_pldx;
 COMMIT;
 
@@ -905,8 +889,6 @@ CREATE TABLE xdr_Wherry_preg_prov AS
 SELECT rownum as prov_study_id
         ,x.*
 FROM (SELECT DISTINCT prov.prov_id               AS provider_id,
-                --Provider Gender(?)
-                --uclaprov.DEID_PROV_ID,
                 prv.provider_type,
                 prv.primary_specialty,
                 CASE WHEN   ser.ACTIVE_STATUS = 'Active'  AND  emp.USER_STATUS_C = 1 THEN 1
@@ -927,7 +909,6 @@ LEFT JOIN clarity.v_cube_d_provider       prv   ON prov.prov_id = prv.provider_i
 --check for active providers
 LEFT JOIN clarity.clarity_ser                     ser ON prov.prov_id = ser.PROV_ID
 LEFT JOIN clarity.CLARITY_EMP                     emp ON prov.PROV_ID = emp.PROV_ID 
---LEFT JOIN I2B2.bip_PROVIDER_LINK                  uclaprov ON prov.PROV_ID = uclaprov.CLARITY_PROV_ID
 ) x
 ORDER BY  dbms_random.value
 ;
