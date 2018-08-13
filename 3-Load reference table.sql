@@ -21,7 +21,14 @@ CREATE TABLE "XDR_WHERRY_RACE_ROLLUP"
 -- It's recommended to check that the 'PATIENT_RACE_C' value corresponds to the same 'PATIENT_RACE_NAME' in your environment.
 --------------------------------------------------------------------------------
 
-
+--Add counts for QA
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT, DESCRIPTION)
+SELECT 'XDR_WHERRY_RACE_ROLLUP' AS TABLE_NAME
+	,NULL AS PAT_COUNT		
+	,COUNT(*) AS TOTAL_COUNT 		--112,803(10/12/17)
+	,'Load race driver table' as DESCRIPTION
+FROM XDR_WHERRY_RACE_ROLLUP;
+COMMIT;
 --------------------------------------------------------------------------------
 --	Step 3.3: Create Diagnoses reference table
 --------------------------------------------------------------------------------  
@@ -39,9 +46,10 @@ CREATE TABLE XDR_BAGHDADI_DX_LOOKUP
 -- The file shall be formatted as a CSV with double quotation marks as text identifier.
 
 --Add counts for QA
-INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT, DESCRIPTION)
 SELECT 'XDR_Wherry_preg_DX_LOOKUP' AS TABLE_NAME
 	,NULL AS PAT_COUNT		
 	,COUNT(*) AS TOTAL_COUNT 		--112,803(10/12/17)
+	,'Load diagnoses driver table' as DESCRIPTION
 FROM XDR_Wherry_preg_DX_LOOKUP;
 COMMIT;
