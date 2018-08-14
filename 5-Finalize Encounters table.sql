@@ -57,13 +57,15 @@ SELECT e.pat_id,
         left join clarity.clarity_loc       loc ON dep.rev_loc_id = loc.loc_id
         WHERE e.enc_type_c not in (2532, 2534, 40, 2514, 2505, 2506, 2512, 2507)
 			AND e.effective_date_dt BETWEEN '01/01/2006' AND '02/05/2018';
+--959,044 rows inserted.
 
 --Add counts for QA
-INSERT INTO XDR_WHERRY_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT)
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT, DESCRIPTION)
 SELECT 'XDR_WHERRY_preg_preg_ENC' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	
 	,COUNT(*) AS TOTAL_COUNT 		
-FROM XDR_WHERRY_preg_preg_ENC;
+    ,'Add encounter records for children matched in the pre Care Connect period' as DESCRIPTION
+FROM XDR_WHERRY_preg_ENC;
 COMMIT;
 --------------------------------------------------------------------------------
 --	STEP 5.2: Update FIRST_ENC_DATE and LAST_ENC_DATE in the patient table (only for mothers)
