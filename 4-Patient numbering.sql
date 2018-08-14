@@ -47,10 +47,14 @@ from
 					coh.MOM_CHILD_YN
 	FROM 
 		  (-- ALL WOMEN WITH A PREGANNCY RELATED DX
-			SELECT DISTINCT PAT_ID as pat_id
+			SELECT DISTINCT mom.PAT_ID as pat_id
 						,NULL AS MOM_PAT_ID
 						,'M' MOM_CHILD_YN
-			FROM xdr_wherry_prg_pregall
+			FROM xdr_wherry_prg_coh         mom
+      -- LEFT JOIN XDR_WHERRY_mom_matching   preCC ON mom.PAT_ID = preCC.MOM_PAT_ID
+      -- LEFT JOIN xdr_wherry_all_mom_child  posCC ON mom.PAT_ID = posCC.mom_pat_id
+      -- WHERE
+      --     (preCC.MOM_PAT_ID IS NOT NULL OR posCC.mom_pat_id)
 			union
 			--ALL CHILDREN LINKED TO A WOMAN WITH A PREGNANCY RELATED DX
 			SELECT DISTINCT CHILD_pat_id
@@ -78,13 +82,14 @@ from
 ORDER BY  dbms_random.value
 ;
 COMMIT;
---106,383 rows inserted.
+--111,834 rows inserted.
 
 --Add counts for QA
-INSERT INTO XDR_WHERRY_preg_COUNTS(TABLE_NAME,PAT_COUNT,TOTAL_COUNT)
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT, DESCRIPTION)
 SELECT 'XDR_WHERRY_preg_pat' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	-- 
 	,COUNT(*) AS TOTAL_COUNT 				-- 
+  ,'Create patient table' as DESCRIPTION
 FROM XDR_WHERRY_preg_pat
 ;
 COMMIT;
@@ -107,11 +112,11 @@ JOIN clarity.zc_patient_race pr ON r.patient_race_c = pr.patient_race_c
 WHERE r.patient_race_c is not null;
 
 --Add counts for QA
-INSERT INTO XDR_WHERRY_preg_COUNTS
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT, DESCRIPTION)
 SELECT 'XDR_WHERRY_preg_pat_ALLRACE' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT	
 	,COUNT(*) AS TOTAL_COUNT 		
-	,SYSDATE AS LOAD_TIME
+    ,'Create temporary table for all race records for each patient' AS DESCRIPTION
 FROM XDR_WHERRY_preg_pat_ALLRACE;
 COMMIT;
 
@@ -178,10 +183,11 @@ SELECT DISTINCT pat_id, mapped_race_c, mapped_race_name FROM
 ;
 
 --Add counts for QA
-INSERT INTO XDR_WHERRY_preg_COUNTS(TABLE_NAME,PAT_COUNT,TOTAL_COUNT)
+INSERT INTO XDR_Wherry_preg_COUNTS(TABLE_NAME,PAT_COUNT ,TOTAL_COUNT, DESCRIPTION)
 SELECT 'XDR_WHERRY_preg_pat_RACE' AS TABLE_NAME
 	,COUNT(distinct pat_id) AS PAT_COUNT
 	,COUNT(*) AS TOTAL_COUNT
+    ,'Createt final table with one rollup race records for each patient' AS DESCRIPTION
 FROM XDR_WHERRY_preg_pat_RACE;
 COMMIT;
 
